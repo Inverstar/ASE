@@ -1,16 +1,33 @@
 <script>
   import { onMount } from 'svelte';
-  // 导入刚才写的 Elm 文件
-  // 使用 vite-plugin-elm 导入 Elm 模块的默认导出
-  import Counter from '../elm/Counter.elm';
-
+  
   let node;
 
-  onMount(() => {
-    // 初始化 Elm 应用，挂载到 node 节点上
-    Counter.init({
-      node
-    });
+  onMount(async () => {
+    try {
+      // 动态导入 Elm 模块
+      const module = await import('../elm/Counter.elm');
+      const Elm = module.default || module.Elm || module;
+      
+      console.log('Elm module loaded:', module);
+      console.log('Elm.Counter:', Elm?.Counter);
+      
+      if (Elm && Elm.Counter) {
+        Elm.Counter.init({
+          node: node
+        });
+        console.log('Elm app initialized successfully');
+      } else if (Elm && Elm.init) {
+        Elm.init({
+          node: node
+        });
+        console.log('Elm app initialized successfully');
+      } else {
+        console.error('No init function found in Elm module');
+      }
+    } catch (e) {
+      console.error('Failed to load or initialize Elm app:', e);
+    }
   });
 </script>
 

@@ -22,6 +22,9 @@ export default defineConfig({
 
   // 配置 Vite 插件来处理 Elm 文件
   vite: {
-    plugins: [elm()]
+    plugins: [elm()],
+    optimizeDeps: {
+      include: ['src/elm/Counter.elm']
+    }
   }
 });
