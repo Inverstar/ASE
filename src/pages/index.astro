@@ -72,6 +72,51 @@ const files = await s3
 				font-size: 1.1rem;
 				margin-bottom: 2rem;
 			}
+			.links-section {
+				margin-top: 3rem;
+				padding-top: 2rem;
+				border-top: 2px solid rgba(255, 255, 255, 0.2);
+				width: 100%;
+				max-width: 600px;
+			}
+			.links-title {
+				font-size: 1.3rem;
+				margin-bottom: 1.5rem;
+				color: white;
+				text-align: center;
+			}
+			.links-container {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+				gap: 1rem;
+			}
+			.link-card {
+				background: rgba(255, 255, 255, 0.1);
+				border: 1px solid rgba(255, 255, 255, 0.2);
+				border-radius: 8px;
+				padding: 1.2rem;
+				text-align: center;
+				transition: all 0.3s ease;
+				text-decoration: none;
+				color: white;
+				backdrop-filter: blur(10px);
+			}
+			.link-card:hover {
+				background: rgba(255, 255, 255, 0.2);
+				transform: translateY(-5px);
+				box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+				border-color: #ffd700;
+			}
+			.link-name {
+				font-weight: bold;
+				font-size: 1.1rem;
+				margin-bottom: 0.5rem;
+				color: #ffd700;
+			}
+			.link-desc {
+				font-size: 0.9rem;
+				color: rgba(255, 255, 255, 0.8);
+			}
 		</style>
 	</head>
 	<body>
@@ -82,6 +127,17 @@ const files = await s3
 		<!-- client:load 意思是：页面加载时立即在客户端激活 JS -->
 		<!-- 如果不加 client:load，它就是静态 HTML，Elm 动不了 -->
 		<ElmWrapper targetNumber={targetNumber} client:load />
+
+		<!-- 友链区域 -->
+		<div class="links-section">
+			<h2 class="links-title">🔗 友情链接</h2>
+			<div class="links-container">
+				<a href="https://tool.nexur.top" target="_blank" rel="noopener noreferrer" class="link-card">
+					<div class="link-name">OpenDevTools</div>
+					<div class="link-desc">OD工具箱</div>
+				</a>
+			</div>
+		</div>
 
 	</body>
 </html>
