@@ -6,6 +6,9 @@ import postgres from 'postgres';
 
 // --- SSR 服务端逻辑区 ---
 
+// 生成随机目标数字 (7-15)
+const targetNumber = Math.floor(Math.random() * 9) + 7;
+
 // 1. 测试连接 Neon 数据库
 const sql = postgres(import.meta.env.DATABASE_URL);
 // 假设你数据库里有个叫 posts 的表，没有的话这行会报错，先注释掉测试
@@ -74,11 +77,11 @@ const files = await s3
 	<body>
 		<h1>Astro + Svelte + Elm</h1>
 		
-		<p>下面是一个嵌入的 Elm 计数器：</p>
+		<p>将计数器加到 <span style="color: #ffd700; font-weight: bold;">{targetNumber}</span> 来访问个人主页</p>
 		
 		<!-- client:load 意思是：页面加载时立即在客户端激活 JS -->
 		<!-- 如果不加 client:load，它就是静态 HTML，Elm 动不了 -->
-		<ElmWrapper client:load />
+		<ElmWrapper targetNumber={targetNumber} client:load />
 
 	</body>
 </html>
