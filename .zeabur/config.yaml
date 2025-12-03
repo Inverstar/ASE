@@ -1,0 +1,16 @@
+build:
+  command: npm install && npm run build
+  artifact: dist
+
+serverless:
+  module: dist/server/entry.mjs
+  timeout: 60
+
+ports:
+  - port: 3000
+    protocol: http
+    expose: true
+
+env:
+  NODE_ENV: production
+  NODE_VERSION: "18"

@@ -1,0 +1,12 @@
+{
+  "build": {
+    "command": "npm install && npm run build",
+    "artifact": "dist"
+  },
+  "serverless": {
+    "module": "dist/server/entry.mjs"
+  },
+  "env": {
+    "NODE_VERSION": "18"
+  }
+}
