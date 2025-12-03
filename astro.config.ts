@@ -7,18 +7,18 @@ import sentry from '@sentry/astro';
 import spotlightjs from '@spotlightjs/astro';
 
 
-// 判断是否在 Zeabur 构建 (通过环境变量)
-const IS_ZEABUR = process.env.DEPLOY_PLATFORM === 'zeabur';
+// 判断是否在 Vercel 环境 (Vercel 平台自带此变量)
+const IS_VERCEL = process.env.VERCEL === '1';
 
 export default defineConfig({
   // 开启 SSR (服务端渲染) 模式
   output: 'server',
 
-  // 动态选择适配器：
-  // 如果是 Zeabur 就用 Node 模式，否则默认用 Vercel 模式
-  adapter: IS_ZEABUR 
-    ? node({ mode: 'standalone' }) 
-    : vercel({}),
+  // 逻辑反转：如果是 Vercel，用 Vercel 适配器；
+  // 否则（Zeabur、本地、Docker），统统用 Node 适配器。
+  adapter: IS_VERCEL 
+    ? vercel({}) 
+    : node({ mode: 'standalone' }),
 
   // 启用 Svelte 支持
   integrations: [svelte(), sentry(), spotlightjs()],
