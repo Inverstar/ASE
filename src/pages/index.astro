@@ -1,4 +1,5 @@
 ---
+import Layout from '../layouts/Layout.astro';
 // 引入 Svelte 组件
 import ElmWrapper from '../components/ElmWrapper.svelte';
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
@@ -38,108 +39,101 @@ const files = await s3
 // const files = await s3.send(command);
 ---
 
-<html lang="zh-CN">
-	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>我的全栈博客</title>
-		<style>
-			* {
-				margin: 0;
-				padding: 0;
-				box-sizing: border-box;
-			}
-			body {
-				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				justify-content: center;
-				min-height: 100vh;
-				padding: 2rem;
-				background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-			}
-			h1, p {
-				color: white;
-				text-align: center;
-				margin-bottom: 1.5rem;
-			}
-			h1 {
-				font-size: 2.5rem;
-				margin-bottom: 1rem;
-			}
-			p {
-				font-size: 1.1rem;
-				margin-bottom: 2rem;
-			}
-			.links-section {
-				margin-top: 3rem;
-				padding-top: 2rem;
-				border-top: 2px solid rgba(255, 255, 255, 0.2);
-				width: 100%;
-				max-width: 600px;
-			}
-			.links-title {
-				font-size: 1.3rem;
-				margin-bottom: 1.5rem;
-				color: white;
-				text-align: center;
-			}
-			.links-container {
-				display: grid;
-				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-				gap: 1rem;
-			}
-			.link-card {
-				background: rgba(255, 255, 255, 0.1);
-				border: 1px solid rgba(255, 255, 255, 0.2);
-				border-radius: 8px;
-				padding: 1.2rem;
-				text-align: center;
-				transition: all 0.3s ease;
-				text-decoration: none;
-				color: white;
-				backdrop-filter: blur(10px);
-			}
-			.link-card:hover {
-				background: rgba(255, 255, 255, 0.2);
-				transform: translateY(-5px);
-				box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-				border-color: #ffd700;
-			}
-			.link-name {
-				font-weight: bold;
-				font-size: 1.1rem;
-				margin-bottom: 0.5rem;
-				color: #ffd700;
-			}
-			.link-desc {
-				font-size: 0.9rem;
-				color: rgba(255, 255, 255, 0.8);
-			}
-		</style>
-	</head>
-	<body>
-		<h1>Astro + Svelte + Elm</h1>
-		
-		<p>将计数器加到 <span style="color: #ffd700; font-weight: bold;">{targetNumber}</span> 来访问个人主页</p>
-		
-		<!-- client:load 意思是：页面加载时立即在客户端激活 JS -->
-		<!-- 如果不加 client:load，它就是静态 HTML，Elm 动不了 -->
-		<ElmWrapper targetNumber={targetNumber} client:load />
+<Layout>
+  <h1>Astro + Svelte + Elm</h1>
+  
+  <p>将计数器加到 <span style="color: #ffd700; font-weight: bold;">{targetNumber}</span> 来访问个人主页</p>
+  
+  <!-- client:load 意思是：页面加载时立即在客户端激活 JS -->
+  <!-- 如果不加 client:load，它就是静态 HTML，Elm 动不了 -->
+  <ElmWrapper targetNumber={targetNumber} client:load />
 
-		<!-- 友链区域 -->
-		<div class="links-section">
-			<h2 class="links-title">🔗 友情链接</h2>
-			<div class="links-container">
-				<a href="https://tool.nexur.top" target="_blank" rel="noopener noreferrer" class="link-card">
-					<div class="link-name">OpenDevTools</div>
-					<div class="link-desc">OD工具箱</div>
-				</a>
-			</div>
-		</div>
+  <!-- 友链区域 -->
+  <div class="links-section">
+    <h2 class="links-title">🔗 友情链接</h2>
+    <div class="links-container">
+      <a href="https://tool.nexur.top" target="_blank" rel="noopener noreferrer" class="link-card">
+        <div class="link-name">OpenDevTools</div>
+        <div class="link-desc">OD工具箱</div>
+      </a>
+    </div>
+  </div>
+</Layout>
 
-	</body>
-</html>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+  h1, p {
+    color: white;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+  }
+  p {
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+  }
+  .links-section {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 2px solid rgba(255, 255, 255, 0.2);
+    width: 100%;
+    max-width: 600px;
+  }
+  .links-title {
+    font-size: 1.3rem;
+    margin-bottom: 1.5rem;
+    color: white;
+    text-align: center;
+  }
+  .links-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+  .link-card {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 1.2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    color: white;
+    backdrop-filter: blur(10px);
+  }
+  .link-card:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    border-color: #ffd700;
+  }
+  .link-name {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: #ffd700;
+  }
+  .link-desc {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.8);
+  }
+</style>
 
 
