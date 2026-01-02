@@ -1,8 +1,6 @@
 import { defineConfig } from 'astro/config';
 import svelte from '@astrojs/svelte';
 import vercel from '@astrojs/vercel/serverless';  
-import vercelAnalytics from '@vercel/analytics/astro';  
-import vercelSpeedInsights from '@vercel/speed-insights/astro';  
 import node from '@astrojs/node';
 import elm from 'vite-plugin-elm';
 import sentry from '@sentry/astro';
@@ -23,7 +21,7 @@ export default defineConfig({
     : node({ mode: 'standalone' }),
 
   // 启用 Svelte 支持
-  integrations: [svelte(), sentry(), spotlightjs(), vercelAnalytics(), vercelSpeedInsights()],
+  integrations: [svelte(), sentry(), spotlightjs()],
 
   // 配置 Vite 插件来处理 Elm 文件
   vite: {
