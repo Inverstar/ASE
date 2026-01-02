@@ -1,7 +1,5 @@
----
 import SpeedInsights from '@vercel/speed-insights/astro';
 import Analytics from '@vercel/analytics/astro';
----
 
 <!doctype html>
 <html lang="en">
@@ -11,11 +9,11 @@ import Analytics from '@vercel/analytics/astro';
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <meta name="generator" content={Astro.generator} />
         <title>Astro Basics</title>
-        <Analytics />
-        <SpeedInsights />
     </head>
     <body>
         <slot />
+        <Analytics />
+        <SpeedInsights />
     </body>
 </html>
 
