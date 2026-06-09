@@ -46,15 +46,59 @@ let cmcError = null;
 
 if (CMC_KEY) {
   try {
-    const res = await fetch(
-      'https://pro-api.coinmarketcap.com/v3/fear-and-greed/historical?limit=365',
-      { headers: { 'X-CMC_PRO_API_KEY': CMC_KEY, Accept: 'application/json' } }
-    );
-    const json = await res.json();
-    if (Array.isArray(json?.data)) {
-      cmcData = json.data;
+    const fetchPage = async (limit, start = 1) => {
+      const url = `https://pro-api.coinmarketcap.com/v3/fear-and-greed/historical?limit=${limit}${start > 1 ? `&start=${start}` : ''}`;
+      const res = await fetch(url, {
+        headers: { 'X-CMC_PRO_API_KEY': CMC_KEY, Accept: 'application/json' }
+      });
+      return res.json();
+    };
+
+    const fetchLatest = async () => {
+      const url = 'https://pro-api.coinmarketcap.com/v3/fear-and-greed/latest';
+      const res = await fetch(url, {
+        headers: { 'X-CMC_PRO_API_KEY': CMC_KEY, Accept: 'application/json' }
+      });
+      return res.json();
+    };
+
+    const [latestRes, p1, p2, p3] = await Promise.all([
+      fetchLatest(),
+      fetchPage(500, 1),
+      fetchPage(500, 501),
+      fetchPage(500, 1001)
+    ]);
+
+    const allData = [];
+    if (Array.isArray(p1?.data)) allData.push(...p1.data);
+    if (Array.isArray(p2?.data)) allData.push(...p2.data);
+    if (Array.isArray(p3?.data)) allData.push(...p3.data);
+
+    if (allData.length > 0) {
+      cmcData = allData;
+      
+      const latestItem = latestRes?.data ?? null;
+      if (latestItem && cmcData.length > 0) {
+        const latestTs = Math.floor(new Date(latestItem.update_time).getTime() / 1000);
+        const latestDateStr = new Date(latestTs * 1000).toISOString().split('T')[0];
+        const firstHistDateStr = new Date(Number(cmcData[0].timestamp) * 1000).toISOString().split('T')[0];
+        
+        if (latestDateStr !== firstHistDateStr && latestTs > Number(cmcData[0].timestamp)) {
+          cmcData.unshift({
+            timestamp: String(latestTs),
+            value: latestItem.value,
+            value_classification: latestItem.value_classification
+          });
+        } else {
+          cmcData[0] = {
+            timestamp: cmcData[0].timestamp,
+            value: latestItem.value,
+            value_classification: latestItem.value_classification
+          };
+        }
+      }
     } else {
-      cmcError = json?.status?.error_message ?? 'API 返回数据异常';
+      cmcError = p1?.status?.error_message ?? p2?.status?.error_message ?? p3?.status?.error_message ?? 'API 返回数据异常';
     }
   } catch (e) {
     cmcError = e.message;
@@ -70,7 +114,8 @@ const lastMonth = cmcData?.[30] ?? null;
 
 let yearHigh = null, yearLow = null;
 if (cmcData) {
-  for (const d of cmcData) {
+  const yearlyData = cmcData.slice(0, 365);
+  for (const d of yearlyData) {
     if (!yearHigh || d.value > yearHigh.value) yearHigh = d;
     if (!yearLow  || d.value < yearLow.value)  yearLow  = d;
   }
@@ -307,8 +352,16 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
                 </div>
               </div>
             ) : (
-              <div class="gt-chart-wrap-container" style="border:none; margin:0; padding:0;">
-                <p class="gt-chart-label">过去 30 天趋势</p>
+              <div class="gt-chart-wrap-container" id="gt-chart-container" data-cmc={JSON.stringify(cmcData)} style="border:none; margin:0; padding:0;">
+                <div class="gt-chart-header">
+                  <p class="gt-chart-label">过去 30 天趋势</p>
+                  <div class="gt-chart-tabs">
+                    <button class="gt-tab-btn active" data-range="30">30天</button>
+                    <button class="gt-tab-btn" data-range="365">1年</button>
+                    <button class="gt-tab-btn" data-range="1095">3年</button>
+                    <button class="gt-tab-btn" data-range="1825">5年</button>
+                  </div>
+                </div>
                 <div class="gt-chart-wrap">
                   <svg viewBox={`0 0 ${CW} ${CH}`} class="gt-line-chart" preserveAspectRatio="none">
                     <defs>
@@ -424,6 +477,96 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
   document.documentElement.setAttribute('data-theme', savedTheme);
 
   document.addEventListener('DOMContentLoaded', () => {
+    // CMC Trend Chart Time Range Switcher
+    const chartContainer = document.getElementById('gt-chart-container');
+    if (chartContainer) {
+      const cmcDataStr = chartContainer.getAttribute('data-cmc');
+      if (cmcDataStr) {
+        try {
+          const cmcData = JSON.parse(cmcDataStr);
+          const tabs = chartContainer.querySelectorAll('.gt-tab-btn');
+          const chartLabel = chartContainer.querySelector('.gt-chart-label');
+          const polylineEl = chartContainer.querySelector('.gt-line-chart polyline');
+          const areaEl = chartContainer.querySelector('.gt-line-chart polygon');
+          const markerEl = chartContainer.querySelector('.gt-line-chart circle');
+          const xAxisEl = chartContainer.querySelector('.gt-x-axis');
+
+          const CW = 560;
+          const CH = 100;
+          const CPT = 6;
+
+          const clientFmtDate = (ts: any) => {
+            const ms = Number(ts) < 1e12 ? Number(ts) * 1000 : Number(ts);
+            return new Date(ms).toLocaleDateString('zh-CN', {
+              year: 'numeric', month: 'short', day: 'numeric',
+            });
+          };
+
+          const clientValueColor = (v: number) => {
+            if (v <= 20) return '#ea3943';
+            if (v <= 40) return '#f97316';
+            if (v <= 60) return '#eab308';
+            if (v <= 80) return '#84cc16';
+            return '#16c784';
+          };
+
+          const updateChart = (days: number) => {
+            if (!cmcData || !cmcData.length) return;
+            const chartRaw = cmcData.slice(0, days).reverse();
+            const chartPts = chartRaw.map((d: any, i: number) => {
+              const x = chartRaw.length > 1 ? (i / (chartRaw.length - 1)) * CW : CW / 2;
+              const y = CPT + ((100 - d.value) / 100) * (CH - CPT * 2);
+              return { x: +x.toFixed(2), y: +y.toFixed(2), v: d.value };
+            });
+
+            const polylinePoints = chartPts.map((p: any) => `${p.x},${p.y}`).join(' ');
+            const areaPoints = chartPts.length ? `0,${CH} ${polylinePoints} ${CW},${CH}` : '';
+
+            if (polylineEl) {
+              polylineEl.setAttribute('points', polylinePoints);
+            }
+            if (areaEl) {
+              areaEl.setAttribute('points', areaPoints);
+            }
+            if (markerEl && chartPts.length > 0) {
+              const lastPt = chartPts[chartPts.length - 1];
+              markerEl.setAttribute('cx', String(lastPt.x));
+              markerEl.setAttribute('cy', String(lastPt.y));
+              markerEl.setAttribute('fill', clientValueColor(lastPt.v));
+            }
+
+            if (xAxisEl && chartRaw.length > 0) {
+              const first = clientFmtDate(chartRaw[0].timestamp);
+              const mid = clientFmtDate(chartRaw[Math.floor(chartRaw.length / 2)].timestamp);
+              const last = clientFmtDate(chartRaw[chartRaw.length - 1].timestamp);
+              xAxisEl.innerHTML = `<span>${first}</span><span>${mid}</span><span>${last}</span>`;
+            }
+
+            if (chartLabel) {
+              let labelText = `过去 ${days} 天趋势`;
+              if (days === 30) labelText = '过去 30 天趋势';
+              else if (days === 365) labelText = '过去 1 年趋势';
+              else if (days === 1095) labelText = '过去 3 年趋势 (实际数据1076天)';
+              else if (days === 1825) labelText = '过去 5 年趋势 (自2023年8月上线起)';
+              chartLabel.textContent = labelText;
+            }
+          };
+
+          tabs.forEach(tab => {
+            tab.addEventListener('click', (e) => {
+              e.preventDefault();
+              tabs.forEach(t => t.classList.remove('active'));
+              tab.classList.add('active');
+              const range = parseInt(tab.getAttribute('data-range') || '30', 10);
+              updateChart(range);
+            });
+          });
+        } catch (err) {
+          console.error('Failed to parse CMC data:', err);
+        }
+      }
+    }
+
     // Theme Toggler functionality
     const themeBtns = document.querySelectorAll('[data-theme-val]');
     
@@ -1244,7 +1387,41 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     flex: 1;
     min-height: 0;
   }
-  .gt-chart-label { font-size: 1rem; color: var(--text-secondary); transition: color 0.3s; }
+  .gt-chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.2rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .gt-chart-label { font-size: 1rem; color: var(--text-secondary); transition: color 0.3s; margin: 0; }
+  .gt-chart-tabs {
+    display: flex;
+    background: var(--pill-bg);
+    border: 1px solid var(--pill-border);
+    border-radius: 6px;
+    padding: 0.15rem;
+  }
+  .gt-tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 0.2rem 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .gt-tab-btn:hover {
+    color: var(--text-primary);
+    background: var(--btn-sec-hover);
+  }
+  .gt-tab-btn.active {
+    color: var(--bg-color);
+    background: var(--text-primary);
+  }
   .gt-chart-wrap {
     position: relative;
     background: rgba(0,0,0,0.18);
