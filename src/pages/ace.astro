@@ -1,0 +1,1966 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { generateChinaIndicatorData } from '../utils/sentiment';
+
+// Helper functions for dynamic calculations
+function polar(cx: number, cy: number, r: number, deg: number) {
+  const rad = (deg * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
+}
+
+function gaugeArc(cx: number, cy: number, r: number, fromVal: number, toVal: number, scaleMin = 0, scaleMax = 100) {
+  const fromPct = (fromVal - scaleMin) / (scaleMax - scaleMin);
+  const toPct = (toVal - scaleMin) / (scaleMax - scaleMin);
+  const fromDeg = 180 - fromPct * 180;
+  const toDeg = 180 - toPct * 180;
+  const p1 = polar(cx, cy, r, fromDeg);
+  const p2 = polar(cx, cy, r, toDeg);
+  const large = Math.abs(toPct - fromPct) > 0.5 ? 1 : 0;
+  return `M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} A ${r} ${r} 0 ${large} 0 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+}
+
+// Valuation temp colors: Green/Teal (cheap) to Red (expensive)
+function getTempState(v: number) {
+  if (v <= 20) return { text: '极度低估', color: '#16c784' };
+  if (v <= 40) return { text: '估值偏低', color: '#84cc16' };
+  if (v <= 60) return { text: '估值合理', color: '#eab308' };
+  if (v <= 80) return { text: '估值偏高', color: '#f97316' };
+  return { text: '极度高估', color: '#ea3943' };
+}
+
+// China FGI colors: Red (fear) to Green (greed)
+function getFgiState(v: number) {
+  if (v <= 25) return { text: '极度恐惧', color: '#ea3943' };
+  if (v <= 45) return { text: '情绪恐慌', color: '#f97316' };
+  if (v <= 55) return { text: '情绪中性', color: '#eab308' };
+  if (v <= 75) return { text: '情绪贪婪', color: '#84cc16' };
+  return { text: '极度贪婪', color: '#16c784' };
+}
+
+function getVolumeState(v: number) {
+  if (v < 8000) return { text: '成交地量', color: '#94a3b8' };
+  if (v <= 12000) return { text: '常态温和', color: '#84cc16' };
+  if (v <= 18000) return { text: '活跃放量', color: '#eab308' };
+  return { text: '天量狂热', color: '#ea3943' };
+}
+
+function getRsiState(v: number) {
+  if (v < 30) return { text: '超卖区域', color: '#16c784' };
+  if (v <= 70) return { text: '合理区间', color: '#eab308' };
+  return { text: '超买预警', color: '#ea3943' };
+}
+
+function getBaifenweiState(pct: number) {
+  if (pct <= 20) return { text: '极冷', color: '#16c784' };
+  if (pct <= 40) return { text: '偏冷', color: '#84cc16' };
+  if (pct <= 60) return { text: '正常', color: '#eab308' };
+  if (pct <= 80) return { text: '偏热', color: '#f97316' };
+  return { text: '极热', color: '#ea3943' };
+}
+
+// Generate indicator walks
+const sentimentData = generateChinaIndicatorData();
+
+// Extract metrics
+const chinaFgiVal = sentimentData.chinaFgi.currentValue;
+const chinaFgiHistory = sentimentData.chinaFgi.historicalData;
+
+const aShareTempVal = sentimentData.aShareTemp.currentValue;
+const aShareTempHistory = sentimentData.aShareTemp.historicalData;
+
+const hkTempVal = sentimentData.hkTemp.currentValue;
+const hkTempHistory = sentimentData.hkTemp.historicalData;
+
+const chinaInternetTempVal = sentimentData.chinaInternetTemp.currentValue;
+const chinaInternetTempHistory = sentimentData.chinaInternetTemp.historicalData;
+
+const sentimentTempVal = sentimentData.sentimentTemp.currentValue;
+const sentimentTempHistory = sentimentData.sentimentTemp.historicalData;
+
+const volumeVal = sentimentData.volume.currentValue;
+const volumeHistory = sentimentData.volume.historicalData;
+
+const rsiVal = sentimentData.rsi.currentValue;
+const rsiHistory = sentimentData.rsi.historicalData;
+
+const hs300Pe = sentimentData.hs300Pe;
+const hs300Pb = sentimentData.hs300Pb;
+const hs300Ps = sentimentData.hs300Ps;
+
+const breadthVal = sentimentData.breadth.currentValue;
+const breadthHistory = sentimentData.breadth.historicalData;
+
+
+// FGI.world metrics
+const aShareFgiVal = sentimentData.aShareFgi.currentValue;
+const aShareFgiHistory = sentimentData.aShareFgi.historicalData;
+
+const hkFgiVal = sentimentData.hkFgi.currentValue;
+const hkFgiHistory = sentimentData.hkFgi.historicalData;
+
+// Sector Index metrics
+const sectorAi = sentimentData.sectorAi;
+const sectorSemiconductor = sentimentData.sectorSemiconductor;
+const sector3rdSemi = sentimentData.sector3rdSemi;
+
+// Gauge constant metrics
+const NGCX = 100, NGCY = 92, NGR = 72;
+---
+
+<Layout>
+<div class="gt-wrapper">
+  <!-- Background ambient lights -->
+  <div class="gt-orbs">
+    <div class="gt-orb gt-orb1"></div>
+    <div class="gt-orb gt-orb2"></div>
+    <div class="gt-orb gt-orb3"></div>
+  </div>
+
+  <!-- Theme selector bar -->
+  <div class="gt-theme-selector">
+    <button class="gt-theme-btn" data-theme-val="dark" title="深色模式">🌙</button>
+    <button class="gt-theme-btn" data-theme-val="light" title="浅色模式">☀️</button>
+    <button class="gt-theme-btn" data-theme-val="paper" title="护眼纸黄">📖</button>
+  </div>
+
+  <div class="gt-container">
+    <!-- Header -->
+    <div class="gt-header">
+      <div class="gt-badge">♠️ Ace 看板 · 中国市场</div>
+      <h1 class="gt-title">Ace 看板</h1>
+      <p class="gt-sub">多维度观察 A股、港股及中国海外互联网市场的估值温度与情绪位置</p>
+    </div>
+
+    <!-- Drag-and-drop 6-column grid board -->
+    <div class="gt-board">
+
+      <!-- ==================== 1. China FGI Index Gauge ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="china-fgi-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-fgi">综合恐贪指数</h2>
+          <span class="gt-source">情绪合成</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-gauge-box">
+            <svg viewBox="0 0 200 105" class="gt-gauge">
+              <path d={gaugeArc(NGCX, NGCY, NGR, 0, 25)} stroke="#ea3943" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 25, 45)} stroke="#f97316" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 45, 55)} stroke="#eab308" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 55, 75)} stroke="#84cc16" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 75, 100)} stroke="#16c784" stroke-width="12" fill="none" opacity="0.85" />
+              {(() => {
+                const angleVal = Math.max(0, Math.min(100, chinaFgiVal));
+                const pct = angleVal / 100;
+                return (
+                  <line 
+                    x1={NGCX} y1={NGCY} 
+                    x2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).x.toFixed(2)} 
+                    y2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).y.toFixed(2)} 
+                    stroke={getFgiState(chinaFgiVal).color} stroke-width="3" stroke-linecap="round" 
+                  />
+                );
+              })()}
+              <circle cx={NGCX} cy={NGCY} r="5" fill={getFgiState(chinaFgiVal).color}/>
+              <circle cx={NGCX} cy={NGCY} r="2.5" fill="var(--block-bg)"/>
+              <text x={NGCX} y={NGCY - 14} text-anchor="middle" font-size="25" font-weight="800" fill={getFgiState(chinaFgiVal).color}>{chinaFgiVal.toFixed(1)}</text>
+              <text x={NGCX} y={NGCY - 1} text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text-primary)">{getFgiState(chinaFgiVal).text}</text>
+            </svg>
+            <p class="gt-gauge-desc">基于成交、宽度、换手等指标加权</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 2. A-Share FGI world Gauge ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="ashare-fgi-world">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-fgi">A股情绪指数</h2>
+          <span class="gt-source">FGI.world</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-gauge-box">
+            <svg viewBox="0 0 200 105" class="gt-gauge">
+              <path d={gaugeArc(NGCX, NGCY, NGR, 0, 25)} stroke="#ea3943" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 25, 45)} stroke="#f97316" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 45, 55)} stroke="#eab308" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 55, 75)} stroke="#84cc16" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 75, 100)} stroke="#16c784" stroke-width="12" fill="none" opacity="0.85" />
+              {(() => {
+                const angleVal = Math.max(0, Math.min(100, aShareFgiVal));
+                const pct = angleVal / 100;
+                return (
+                  <line 
+                    x1={NGCX} y1={NGCY} 
+                    x2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).x.toFixed(2)} 
+                    y2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).y.toFixed(2)} 
+                    stroke={getFgiState(aShareFgiVal).color} stroke-width="3" stroke-linecap="round" 
+                  />
+                );
+              })()}
+              <circle cx={NGCX} cy={NGCY} r="5" fill={getFgiState(aShareFgiVal).color}/>
+              <circle cx={NGCX} cy={NGCY} r="2.5" fill="var(--block-bg)"/>
+              <text x={NGCX} y={NGCY - 14} text-anchor="middle" font-size="25" font-weight="800" fill={getFgiState(aShareFgiVal).color}>{aShareFgiVal.toFixed(1)}</text>
+              <text x={NGCX} y={NGCY - 1} text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text-primary)">{getFgiState(aShareFgiVal).text}</text>
+            </svg>
+            <p class="gt-gauge-desc">A股恐贪指数 (feargreedindex.world)</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 3. HK FGI world Gauge ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="hk-fgi-world">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-fgi">港股情绪指数</h2>
+          <span class="gt-source">FGI.world</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-gauge-box">
+            <svg viewBox="0 0 200 105" class="gt-gauge">
+              <path d={gaugeArc(NGCX, NGCY, NGR, 0, 25)} stroke="#ea3943" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 25, 45)} stroke="#f97316" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 45, 55)} stroke="#eab308" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 55, 75)} stroke="#84cc16" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 75, 100)} stroke="#16c784" stroke-width="12" fill="none" opacity="0.85" />
+              {(() => {
+                const angleVal = Math.max(0, Math.min(100, hkFgiVal));
+                const pct = angleVal / 100;
+                return (
+                  <line 
+                    x1={NGCX} y1={NGCY} 
+                    x2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).x.toFixed(2)} 
+                    y2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).y.toFixed(2)} 
+                    stroke={getFgiState(hkFgiVal).color} stroke-width="3" stroke-linecap="round" 
+                  />
+                );
+              })()}
+              <circle cx={NGCX} cy={NGCY} r="5" fill={getFgiState(hkFgiVal).color}/>
+              <circle cx={NGCX} cy={NGCY} r="2.5" fill="var(--block-bg)"/>
+              <text x={NGCX} y={NGCY - 14} text-anchor="middle" font-size="25" font-weight="800" fill={getFgiState(hkFgiVal).color}>{hkFgiVal.toFixed(1)}</text>
+              <text x={NGCX} y={NGCY - 1} text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text-primary)">{getFgiState(hkFgiVal).text}</text>
+            </svg>
+            <p class="gt-gauge-desc">港股恐贪指数 (feargreedindex.world)</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 4. A-Share Valuation Temperature Gauge ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="ashare-temp-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-ashare">A股估值温度</h2>
+          <span class="gt-source">PE百分位</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-gauge-box">
+            <svg viewBox="0 0 200 105" class="gt-gauge">
+              <path d={gaugeArc(NGCX, NGCY, NGR, 0, 20)} stroke="#16c784" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 20, 40)} stroke="#84cc16" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 40, 60)} stroke="#eab308" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 60, 80)} stroke="#f97316" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 80, 100)} stroke="#ea3943" stroke-width="12" fill="none" opacity="0.85" />
+              {(() => {
+                const angleVal = Math.max(0, Math.min(100, aShareTempVal));
+                const pct = angleVal / 100;
+                return (
+                  <line 
+                    x1={NGCX} y1={NGCY} 
+                    x2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).x.toFixed(2)} 
+                    y2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).y.toFixed(2)} 
+                    stroke={getTempState(aShareTempVal).color} stroke-width="3" stroke-linecap="round" 
+                  />
+                );
+              })()}
+              <circle cx={NGCX} cy={NGCY} r="5" fill={getTempState(aShareTempVal).color}/>
+              <circle cx={NGCX} cy={NGCY} r="2.5" fill="var(--block-bg)"/>
+              <text x={NGCX} y={NGCY - 14} text-anchor="middle" font-size="25" font-weight="800" fill={getTempState(aShareTempVal).color}>{aShareTempVal.toFixed(1)}%</text>
+              <text x={NGCX} y={NGCY - 1} text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text-primary)">{getTempState(aShareTempVal).text}</text>
+            </svg>
+            <p class="gt-gauge-desc">A股核心指数估值百分位中位数</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 5. HK Valuation Temperature Gauge ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="hk-temp-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-hk">港股估值温度</h2>
+          <span class="gt-source">PE百分位</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-gauge-box">
+            <svg viewBox="0 0 200 105" class="gt-gauge">
+              <path d={gaugeArc(NGCX, NGCY, NGR, 0, 20)} stroke="#16c784" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 20, 40)} stroke="#84cc16" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 40, 60)} stroke="#eab308" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 60, 80)} stroke="#f97316" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 80, 100)} stroke="#ea3943" stroke-width="12" fill="none" opacity="0.85" />
+              {(() => {
+                const angleVal = Math.max(0, Math.min(100, hkTempVal));
+                const pct = angleVal / 100;
+                return (
+                  <line 
+                    x1={NGCX} y1={NGCY} 
+                    x2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).x.toFixed(2)} 
+                    y2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).y.toFixed(2)} 
+                    stroke={getTempState(hkTempVal).color} stroke-width="3" stroke-linecap="round" 
+                  />
+                );
+              })()}
+              <circle cx={NGCX} cy={NGCY} r="5" fill={getTempState(hkTempVal).color}/>
+              <circle cx={NGCX} cy={NGCY} r="2.5" fill="var(--block-bg)"/>
+              <text x={NGCX} y={NGCY - 14} text-anchor="middle" font-size="25" font-weight="800" fill={getTempState(hkTempVal).color}>{hkTempVal.toFixed(1)}%</text>
+              <text x={NGCX} y={NGCY - 1} text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text-primary)">{getTempState(hkTempVal).text}</text>
+            </svg>
+            <p class="gt-gauge-desc">港股核心指数 10年PE分位中位数</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 6. China Overseas Internet Temperature Gauge ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="internet-temp-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-internet">中概海外互联网温度</h2>
+          <span class="gt-source">PE百分位</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-gauge-box">
+            <svg viewBox="0 0 200 105" class="gt-gauge">
+              <path d={gaugeArc(NGCX, NGCY, NGR, 0, 20)} stroke="#16c784" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 20, 40)} stroke="#84cc16" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 40, 60)} stroke="#eab308" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 60, 80)} stroke="#f97316" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 80, 100)} stroke="#ea3943" stroke-width="12" fill="none" opacity="0.85" />
+              {(() => {
+                const angleVal = Math.max(0, Math.min(100, chinaInternetTempVal));
+                const pct = angleVal / 100;
+                return (
+                  <line 
+                    x1={NGCX} y1={NGCY} 
+                    x2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).x.toFixed(2)} 
+                    y2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).y.toFixed(2)} 
+                    stroke={getTempState(chinaInternetTempVal).color} stroke-width="3" stroke-linecap="round" 
+                  />
+                );
+              })()}
+              <circle cx={NGCX} cy={NGCY} r="5" fill={getTempState(chinaInternetTempVal).color}/>
+              <circle cx={NGCX} cy={NGCY} r="2.5" fill="var(--block-bg)"/>
+              <text x={NGCX} y={NGCY - 14} text-anchor="middle" font-size="25" font-weight="800" fill={getTempState(chinaInternetTempVal).color}>{chinaInternetTempVal.toFixed(1)}%</text>
+              <text x={NGCX} y={NGCY - 1} text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text-primary)">{getTempState(chinaInternetTempVal).text}</text>
+            </svg>
+            <p class="gt-gauge-desc">中国海外互联网指数估值百分位</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 7. Sentiment Temperature Card ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="sentiment-temp-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-sent">综合情绪温度</h2>
+          <span class="gt-source">情绪百分位</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-gauge-box">
+            <svg viewBox="0 0 200 105" class="gt-gauge">
+              <path d={gaugeArc(NGCX, NGCY, NGR, 0, 20)} stroke="#16c784" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 20, 40)} stroke="#84cc16" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 40, 60)} stroke="#eab308" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 60, 80)} stroke="#f97316" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 80, 100)} stroke="#ea3943" stroke-width="12" fill="none" opacity="0.85" />
+              {(() => {
+                const angleVal = Math.max(0, Math.min(100, sentimentTempVal));
+                const pct = angleVal / 100;
+                return (
+                  <line 
+                    x1={NGCX} y1={NGCY} 
+                    x2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).x.toFixed(2)} 
+                    y2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).y.toFixed(2)} 
+                    stroke={getTempState(sentimentTempVal).color} stroke-width="3" stroke-linecap="round" 
+                  />
+                );
+              })()}
+              <circle cx={NGCX} cy={NGCY} r="5" fill={getTempState(sentimentTempVal).color}/>
+              <circle cx={NGCX} cy={NGCY} r="2.5" fill="var(--block-bg)"/>
+              <text x={NGCX} y={NGCY - 14} text-anchor="middle" font-size="25" font-weight="800" fill={getTempState(sentimentTempVal).color}>{sentimentTempVal.toFixed(1)}%</text>
+              <text x={NGCX} y={NGCY - 1} text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text-primary)">{getTempState(sentimentTempVal).text}</text>
+            </svg>
+            <p class="gt-gauge-desc">情绪指标 10年分位中位数</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 8. Two-Market Trading Volume Card ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="volume-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-vol">两市成交额</h2>
+          <span class="gt-source">沪深全部</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-card-box">
+            <div class="gt-metric-large" style={`color: ${getVolumeState(volumeVal).color}`}>
+              {(volumeVal / 100).toFixed(2)}<span class="gt-unit">万亿</span>
+            </div>
+            <div class="gt-badge-inline" style={`background: rgba(255, 215, 0, 0.08); border-color: rgba(255,215,0,0.25); color: #ffd700;`}>
+              3年分位 91.8% (天量狂热)
+            </div>
+            <p class="gt-gauge-desc">沪深两市当日成交金额之和</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 9. RSI Indicator Card ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="rsi-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-rsi">A股相对强弱 (RSI)</h2>
+          <span class="gt-source">RSI 14D</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-card-box">
+            <div class="gt-metric-large" style={`color: ${getRsiState(rsiVal).color}`}>
+              {rsiVal.toFixed(1)}
+            </div>
+            <div class="gt-badge-inline" style={`background: rgba(255, 255, 255, 0.05); color: var(--text-secondary);`}>
+              10年分位 22.5% (偏冷)
+            </div>
+            <p class="gt-gauge-desc">衡量市场短期超买超卖状态</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 10a. HS300 PE Card ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="hs300-pe-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title" style="color: #3b82f6;">沪深300 PE · 市盈率</h2>
+          <span class="gt-source">百分位估值</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-card-box">
+            <div class="gt-metric-large" style="color: #3b82f6;">
+              {hs300Pe.currentValue.toFixed(2)}
+            </div>
+            <div class="gt-badge-inline" style={`background: rgba(255, 255, 255, 0.05); color: ${getBaifenweiState(hs300Pe.percentile).color};`}>
+              10年分位 {hs300Pe.percentile.toFixed(1)}% ({getBaifenweiState(hs300Pe.percentile).text})
+            </div>
+            <p class="gt-gauge-desc">反映指数成分股盈利相对价格的估值位置</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 10b. HS300 PB Card ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="hs300-pb-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title" style="color: #22c55e;">沪深300 PB · 市净率</h2>
+          <span class="gt-source">百分位估值</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-card-box">
+            <div class="gt-metric-large" style="color: #22c55e;">
+              {hs300Pb.currentValue.toFixed(2)}
+            </div>
+            <div class="gt-badge-inline" style={`background: rgba(255, 255, 255, 0.05); color: ${getBaifenweiState(hs300Pb.percentile).color};`}>
+              10年分位 {hs300Pb.percentile.toFixed(1)}% ({getBaifenweiState(hs300Pb.percentile).text})
+            </div>
+            <p class="gt-gauge-desc">反映指数成分股净资产相对价格的估值位置</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 10c. HS300 PS Card ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="hs300-ps-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title" style="color: #f59e0b;">沪深300 PS · 市销率</h2>
+          <span class="gt-source">百分位估值</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-card-box">
+            <div class="gt-metric-large" style="color: #f59e0b;">
+              {hs300Ps.currentValue.toFixed(2)}
+            </div>
+            <div class="gt-badge-inline" style={`background: rgba(255, 255, 255, 0.05); color: ${getBaifenweiState(hs300Ps.percentile).color};`}>
+              10年分位 {hs300Ps.percentile.toFixed(1)}% ({getBaifenweiState(hs300Ps.percentile).text})
+            </div>
+            <p class="gt-gauge-desc">反映指数成分股收入相对价格 of 估值位置</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 11. Sector Card: 人工智能 (w: 2) ==================== -->
+      <div class="gt-block gt-sector-block" data-id="sector-ai">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-ashare">人工智能板块指数</h2>
+          <span class="gt-source">AI 板块 FGI</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-sector-row">
+            <div class="gt-sector-score-box">
+              <div class="gt-sector-score" style={`color: ${getFgiState(sectorAi.currentValue).color}`}>
+                {sectorAi.currentValue.toFixed(1)}
+              </div>
+              <div class="gt-badge-inline" style={`background: rgba(22, 199, 132, 0.08); border-color: rgba(22,199,132,0.25); color: #16c784;`}>
+                {getFgiState(sectorAi.currentValue).text}
+              </div>
+            </div>
+            <div class="gt-sector-details">
+              {sectorAi.subSectors.map((sub: any) => (
+                <span class={`gt-sub-badge ${sub.value >= 75 ? 'bg-greed' : sub.value <= 25 ? 'bg-fear' : 'bg-norm'}`}>
+                  {sub.name}: {sub.value.toFixed(0)} ({sub.state})
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 12. Sector Card: 半导体 (w: 2) ==================== -->
+      <div class="gt-block gt-sector-block" data-id="sector-semi">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-ashare">半导体板块指数</h2>
+          <span class="gt-source">芯片 板块 FGI</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-sector-row">
+            <div class="gt-sector-score-box">
+              <div class="gt-sector-score" style={`color: ${getFgiState(sectorSemiconductor.currentValue).color}`}>
+                {sectorSemiconductor.currentValue.toFixed(1)}
+              </div>
+              <div class="gt-badge-inline" style={`background: rgba(234, 57, 67, 0.08); border-color: rgba(234,57,67,0.25); color: #ea3943;`}>
+                {getFgiState(sectorSemiconductor.currentValue).text}
+              </div>
+            </div>
+            <div class="gt-sector-details">
+              {sectorSemiconductor.subSectors.map((sub: any) => (
+                <span class={`gt-sub-badge ${sub.value >= 75 ? 'bg-greed' : sub.value <= 25 ? 'bg-fear' : 'bg-norm'}`}>
+                  {sub.name}: {sub.value.toFixed(0)} ({sub.state})
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 13. Sector Card: 第三代半导体 (w: 2) ==================== -->
+      <div class="gt-block gt-sector-block" data-id="sector-3rdsemi">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-ashare">第三代半导体指数</h2>
+          <span class="gt-source">SiC / GaN FGI</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-sector-row">
+            <div class="gt-sector-score-box">
+              <div class="gt-sector-score" style={`color: ${getFgiState(sector3rdSemi.currentValue).color}`}>
+                {sector3rdSemi.currentValue.toFixed(1)}
+              </div>
+              <div class="gt-badge-inline" style={`background: rgba(234, 57, 67, 0.08); border-color: rgba(234,57,67,0.25); color: #ea3943;`}>
+                {getFgiState(sector3rdSemi.currentValue).text}
+              </div>
+            </div>
+            <div class="gt-sector-details">
+              {sector3rdSemi.subSectors.map((sub: any) => (
+                <span class={`gt-sub-badge ${sub.value >= 75 ? 'bg-greed' : sub.value <= 25 ? 'bg-fear' : 'bg-norm'}`}>
+                  {sub.name}: {sub.value.toFixed(0)} ({sub.state})
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 14. A-Share & HK Valuation Temp Trend Chart ==================== -->
+      <div class="gt-block gt-double-trend" data-id="ashare-hk-trend">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title">估值温度对比：A股 vs 港股</h2>
+          <div class="gt-chart-tabs" data-target="ashare-hk">
+            <button class="gt-tab-btn" data-range="7">7天</button>
+            <button class="gt-tab-btn active" data-range="30">30天</button>
+            <button class="gt-tab-btn" data-range="180">半年</button>
+            <button class="gt-tab-btn" data-range="365">1年</button>
+          </div>
+        </div>
+        <div class="gt-widget-body chart-body">
+          <div class="chart-container-el">
+            <canvas id="ashare-hk-chart" data-history-1={JSON.stringify(aShareTempHistory)} data-history-2={JSON.stringify(hkTempHistory)} data-label-1="A股估值温度 %" data-label-2="港股估值温度 %"></canvas>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 15. A-Share & HK FGI Trend Chart (world) ==================== -->
+      <div class="gt-block gt-double-trend" data-id="ashare-hk-fgi-trend">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title">FGI情绪对比：A股 vs 港股 (feargreedindex.world)</h2>
+          <div class="gt-chart-tabs" data-target="ashare-hk-fgi">
+            <button class="gt-tab-btn" data-range="7">7天</button>
+            <button class="gt-tab-btn active" data-range="30">30天</button>
+            <button class="gt-tab-btn" data-range="180">半年</button>
+            <button class="gt-tab-btn" data-range="365">1年</button>
+          </div>
+        </div>
+        <div class="gt-widget-body chart-body">
+          <div class="chart-container-el">
+            <canvas id="ashare-hk-fgi-chart" data-history-1={JSON.stringify(aShareFgiHistory)} data-history-2={JSON.stringify(hkFgiHistory)} data-label-1="A股情绪指数 (FGI)" data-label-2="港股情绪指数 (FGI)"></canvas>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 16. China FGI & Trading Volume Trend Chart ==================== -->
+      <div class="gt-block gt-double-trend" data-id="fgi-volume-trend">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title">中国情绪合成：恐贪指数 vs 成交额</h2>
+          <div class="gt-chart-tabs" data-target="fgi-volume">
+            <button class="gt-tab-btn" data-range="7">7天</button>
+            <button class="gt-tab-btn active" data-range="30">30天</button>
+            <button class="gt-tab-btn" data-range="180">半年</button>
+            <button class="gt-tab-btn" data-range="365">1年</button>
+          </div>
+        </div>
+        <div class="gt-widget-body chart-body">
+          <div class="chart-container-el">
+            <canvas id="fgi-volume-chart" data-history-1={JSON.stringify(chinaFgiHistory)} data-history-2={JSON.stringify(volumeHistory)} data-label-1="中国市场恐贪指数" data-label-2="两市成交额 (亿元)"></canvas>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 17. China Internet Temp & Market Breadth Trend Chart ==================== -->
+      <div class="gt-block gt-double-trend" data-id="internet-breadth-trend">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title">海外互联与市场广度 (中概互联 vs A股宽度)</h2>
+          <div class="gt-chart-tabs" data-target="internet-breadth">
+            <button class="gt-tab-btn" data-range="7">7天</button>
+            <button class="gt-tab-btn active" data-range="30">30天</button>
+            <button class="gt-tab-btn" data-range="180">半年</button>
+            <button class="gt-tab-btn" data-range="365">1年</button>
+          </div>
+        </div>
+        <div class="gt-widget-body chart-body">
+          <div class="chart-container-el">
+            <canvas id="internet-breadth-chart" data-history-1={JSON.stringify(chinaInternetTempHistory)} data-history-2={JSON.stringify(breadthHistory)} data-label-1="海外中概互联估值温度 %" data-label-2="A股上涨宽度 %"></canvas>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 18. Navigation & Shortcuts ==================== -->
+      <div class="gt-block gt-nav-block" data-id="nav">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title" style="color: var(--text-secondary);">快捷导航与操作</h2>
+        </div>
+        <div class="gt-nav">
+          <a href="/golden-time" class="gt-btn gt-btn-sec">← 返回数字与黄金 (单市场)</a>
+          <a href="/global-time" class="gt-btn gt-btn-sec">← 返回美丽与漂亮 (多市场)</a>
+          <a href="/" class="gt-btn gt-btn-sec">← 返回个人主页</a>
+          <a href="https://baifenwei.com" target="_blank" rel="noopener noreferrer" class="gt-btn gt-btn-fgi">百分位官网 ↗</a>
+          <a href="https://feargreedindex.world" target="_blank" rel="noopener noreferrer" class="gt-btn gt-btn-cmc">FGI World ↗</a>
+          <a href="https://econix.ai.kr/zh/dashboard" target="_blank" rel="noopener noreferrer" class="gt-btn gt-btn-econix">Econix AI ↗</a>
+          <button id="gt-reset-layout" class="gt-btn gt-btn-reset">重置 Ace 布局 ↺</button>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+    </div><!-- /gt-board -->
+  </div><!-- /gt-container -->
+</div><!-- /gt-wrapper -->
+</Layout>
+
+<!-- Inject Chart.js preloads in Browser -->
+<script is:inline src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script is:inline src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script is:inline src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<script is:inline src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+
+<script>
+  // Immediately read and set theme to avoid FOUC
+  const savedTheme = (() => {
+    try {
+      return localStorage.getItem('gt-theme-v2') || 'paper';
+    } catch (e) {
+      return 'paper';
+    }
+  })();
+  document.documentElement.setAttribute('data-theme', savedTheme);
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Register plugins
+    if (window.Chart && window.chartjsPluginAnnotation && window.chartjsPluginZoom) {
+      window.Chart.register(window.chartjsPluginAnnotation);
+      window.Chart.register(window.chartjsPluginZoom);
+    }
+
+    // --- Color mapping helper functions ---
+    const getThemeColors = () => {
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+      const isPaper = document.documentElement.getAttribute('data-theme') === 'paper';
+      return {
+        gridColor: isLight ? 'rgba(0, 0, 0, 0.05)' : isPaper ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.06)',
+        textColor: isLight ? '#475569' : isPaper ? 'rgba(226, 232, 240, 0.6)' : '#94a3b8'
+      };
+    };
+
+    // Valuation temperature gradient (Green/Teal to Red)
+    const getValuationLineGradient = (ctx: CanvasRenderingContext2D, chartArea: any) => {
+      const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+      gradient.addColorStop(0, "#16c784"); // Green (cheap)
+      gradient.addColorStop(0.2, "#16c784");
+      gradient.addColorStop(0.2, "#84cc16");
+      gradient.addColorStop(0.4, "#84cc16");
+      gradient.addColorStop(0.4, "#eab308");
+      gradient.addColorStop(0.6, "#eab308");
+      gradient.addColorStop(0.6, "#f97316");
+      gradient.addColorStop(0.8, "#f97316");
+      gradient.addColorStop(0.8, "#ea3943"); // Red (expensive)
+      gradient.addColorStop(1, "#ea3943");
+      return gradient;
+    };
+
+    const getValuationBgGradient = (ctx: CanvasRenderingContext2D, chartArea: any) => {
+      const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+      gradient.addColorStop(0, "rgba(22, 199, 132, 0.04)");
+      gradient.addColorStop(0.2, "rgba(22, 199, 132, 0.04)");
+      gradient.addColorStop(0.2, "rgba(132, 204, 22, 0.04)");
+      gradient.addColorStop(0.4, "rgba(132, 204, 22, 0.04)");
+      gradient.addColorStop(0.4, "rgba(234, 179, 8, 0.04)");
+      gradient.addColorStop(0.6, "rgba(234, 179, 8, 0.04)");
+      gradient.addColorStop(0.6, "rgba(249, 115, 22, 0.04)");
+      gradient.addColorStop(0.8, "rgba(249, 115, 22, 0.04)");
+      gradient.addColorStop(0.8, "rgba(234, 57, 67, 0.04)");
+      gradient.addColorStop(1, "rgba(234, 57, 67, 0.04)");
+      return gradient;
+    };
+
+    // FGI Index gradient (Red to Green)
+    const getFgiLineGradient = (ctx: CanvasRenderingContext2D, chartArea: any) => {
+      const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+      gradient.addColorStop(0, "#ea3943"); // Red (fear)
+      gradient.addColorStop(0.25, "#ea3943");
+      gradient.addColorStop(0.25, "#f97316");
+      gradient.addColorStop(0.45, "#f97316");
+      gradient.addColorStop(0.45, "#eab308");
+      gradient.addColorStop(0.55, "#eab308");
+      gradient.addColorStop(0.55, "#84cc16");
+      gradient.addColorStop(0.75, "#84cc16");
+      gradient.addColorStop(0.75, "#16c784"); // Green (greed)
+      gradient.addColorStop(1, "#16c784");
+      return gradient;
+    };
+
+    const getFgiBgGradient = (ctx: CanvasRenderingContext2D, chartArea: any) => {
+      const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+      gradient.addColorStop(0, "rgba(234, 57, 67, 0.04)");
+      gradient.addColorStop(0.25, "rgba(234, 57, 67, 0.04)");
+      gradient.addColorStop(0.25, "rgba(249, 115, 22, 0.04)");
+      gradient.addColorStop(0.45, "rgba(249, 115, 22, 0.04)");
+      gradient.addColorStop(0.45, "rgba(234, 179, 8, 0.04)");
+      gradient.addColorStop(0.55, "rgba(234, 179, 8, 0.04)");
+      gradient.addColorStop(0.55, "rgba(132, 204, 22, 0.04)");
+      gradient.addColorStop(0.75, "rgba(132, 204, 22, 0.04)");
+      gradient.addColorStop(0.75, "rgba(22, 199, 132, 0.04)");
+      gradient.addColorStop(1, "rgba(22, 199, 132, 0.04)");
+      return gradient;
+    };
+
+    const chartInstances: any = {};
+
+    const initDoubleChart = (canvasId: string, optionsMap: any = {}) => {
+      const canvas = document.getElementById(`${canvasId}-chart`) as any;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d");
+      const d1 = JSON.parse(canvas.getAttribute("data-history-1") || "[]");
+      const d2 = JSON.parse(canvas.getAttribute("data-history-2") || "[]");
+      const label1 = canvas.getAttribute("data-label-1") || "";
+      const label2 = canvas.getAttribute("data-label-2") || "";
+
+      const render = (days: number) => {
+        const colors = getThemeColors();
+        const d1Sliced = d1.slice(-days);
+        const d2Sliced = d2.slice(-days);
+
+        const labels = d1Sliced.map((item: any) =>
+          new Date(item.timestamp).toLocaleDateString("zh-CN", {
+            month: "short",
+            day: "numeric",
+          })
+        );
+
+        const v1 = d1Sliced.map((item: any) => item.value);
+        const v2 = d2Sliced.map((item: any) => item.value);
+
+        if (chartInstances[canvasId]) {
+          chartInstances[canvasId].destroy();
+        }
+
+        chartInstances[canvasId] = new window.Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: label1,
+                data: v1,
+                yAxisID: "y",
+                borderColor: function (context: any) {
+                  const chart = context.chart;
+                  const { ctx: chartCtx, chartArea } = chart;
+                  if (!chartArea) return "#ffd700";
+                  if (canvasId === "fgi-volume-chart" || canvasId === "ashare-hk-fgi-chart") {
+                    return getFgiLineGradient(chartCtx, chartArea);
+                  }
+                  return getValuationLineGradient(chartCtx, chartArea);
+                },
+                backgroundColor: function (context: any) {
+                  const chart = context.chart;
+                  const { ctx: chartCtx, chartArea } = chart;
+                  if (!chartArea) return "rgba(255, 215, 0, 0.04)";
+                  if (canvasId === "fgi-volume-chart" || canvasId === "ashare-hk-fgi-chart") {
+                    return getFgiBgGradient(chartCtx, chartArea);
+                  }
+                  return getValuationBgGradient(chartCtx, chartArea);
+                },
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                fill: true,
+                tension: 0.15,
+              },
+              {
+                label: label2,
+                data: v2,
+                yAxisID: "y1",
+                borderColor: "#3b82f6",
+                borderWidth: 1.8,
+                borderDash: [4, 4],
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                fill: false,
+                tension: 0.15,
+              }
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            scales: {
+              y: {
+                type: "linear",
+                display: true,
+                position: "left",
+                min: optionsMap.yMin ?? 0,
+                max: optionsMap.yMax ?? 100,
+                ticks: {
+                  color: colors.textColor,
+                  font: { size: 9 },
+                },
+                grid: {
+                  color: colors.gridColor,
+                }
+              },
+              y1: {
+                type: "linear",
+                display: true,
+                position: "right",
+                min: optionsMap.y1Min ?? 0,
+                max: optionsMap.y1Max ?? 100,
+                ticks: {
+                  color: "#3b82f6",
+                  font: { size: 9 },
+                },
+                grid: {
+                  drawOnChartArea: false,
+                }
+              },
+              x: {
+                grid: { display: false },
+                ticks: {
+                  maxRotation: 0,
+                  autoSkip: true,
+                  maxTicksLimit: 6,
+                  color: colors.textColor,
+                  font: { size: 9 },
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                display: true,
+                labels: {
+                  color: colors.textColor,
+                  font: { size: 9 },
+                  boxWidth: 20
+                }
+              },
+              tooltip: {
+                backgroundColor: "rgba(10, 10, 20, 0.95)",
+                titleColor: "#fff",
+                bodyColor: "#fff",
+                borderColor: "rgba(255,255,255,0.1)",
+                borderWidth: 1,
+              }
+            }
+          }
+        });
+      };
+
+      render(30);
+      canvas._updateChartRange = render;
+    };
+
+    // Initialize Ace charts
+    initDoubleChart("ashare-hk", { yMin: 0, yMax: 100, y1Min: 0, y1Max: 100 });
+    initDoubleChart("ashare-hk-fgi", { yMin: 0, yMax: 100, y1Min: 0, y1Max: 100 });
+    initDoubleChart("fgi-volume", { yMin: 0, yMax: 100, y1Min: 4500, y1Max: 38000 });
+    initDoubleChart("internet-breadth", { yMin: 0, yMax: 100, y1Min: 0, y1Max: 100 });
+
+    // Range buttons click logic
+    const tabContainers = document.querySelectorAll(".gt-chart-tabs[data-target]");
+    tabContainers.forEach((container) => {
+      const target = container.getAttribute("data-target");
+      const canvas = document.getElementById(`${target}-chart`) as any;
+      if (!canvas) return;
+
+      const buttons = container.querySelectorAll(".gt-tab-btn");
+      buttons.forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          buttons.forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const range = parseInt(btn.getAttribute("data-range") || "30", 10);
+          if (canvas._updateChartRange) {
+            canvas._updateChartRange(range);
+          }
+        });
+      });
+    });
+
+    // Theme toggler
+    const themeBtns = document.querySelectorAll("[data-theme-val]");
+    function setTheme(theme: string) {
+      document.documentElement.setAttribute("data-theme", theme);
+      themeBtns.forEach((btn) => {
+        if (btn.getAttribute("data-theme-val") === theme) {
+          btn.classList.add("gt-active");
+        } else {
+          btn.classList.remove("gt-active");
+        }
+      });
+      try {
+        localStorage.setItem('gt-theme-v2', theme);
+      } catch (err) {}
+
+      // Update Chart.js themes dynamically
+      const colors = getThemeColors();
+      Object.values(chartInstances).forEach((chart: any) => {
+        if (chart?.options?.scales) {
+          chart.options.scales.y.grid.color = colors.gridColor;
+          chart.options.scales.y.ticks.color = colors.textColor;
+          chart.options.scales.x.ticks.color = colors.textColor;
+          if (chart.options.plugins?.legend?.labels) {
+            chart.options.plugins.legend.labels.color = colors.textColor;
+          }
+          chart.update();
+        }
+      });
+    }
+
+    setTheme(savedTheme);
+    themeBtns.forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const val = btn.getAttribute("data-theme-val");
+        if (val) setTheme(val);
+      });
+    });
+
+    // --- Grid Layout Engine for Ace Board ---
+    const container = document.querySelector(".gt-board") as HTMLElement | null;
+    if (!container) return;
+
+    const defaultLayout = {
+      "china-fgi-index": { col: 1, row: 1, w: 1, h: 1 },
+      "ashare-fgi-world": { col: 2, row: 1, w: 1, h: 1 },
+      "hk-fgi-world": { col: 3, row: 1, w: 1, h: 1 },
+      "ashare-temp-index": { col: 4, row: 1, w: 1, h: 1 },
+      "hk-temp-index": { col: 5, row: 1, w: 1, h: 1 },
+      "internet-temp-index": { col: 6, row: 1, w: 1, h: 1 },
+      "sentiment-temp-index": { col: 1, row: 2, w: 1, h: 1 },
+      "volume-index": { col: 2, row: 2, w: 1, h: 1 },
+      "rsi-index": { col: 3, row: 2, w: 1, h: 1 },
+      "hs300-pe-index": { col: 4, row: 2, w: 1, h: 1 },
+      "hs300-pb-index": { col: 5, row: 2, w: 1, h: 1 },
+      "hs300-ps-index": { col: 6, row: 2, w: 1, h: 1 },
+      "sector-ai": { col: 1, row: 3, w: 2, h: 1 },
+      "sector-semi": { col: 3, row: 3, w: 2, h: 1 },
+      "sector-3rdsemi": { col: 5, row: 3, w: 2, h: 1 },
+      "ashare-hk-trend": { col: 1, row: 4, w: 6, h: 2 },
+      "ashare-hk-fgi-trend": { col: 1, row: 6, w: 6, h: 2 },
+      "fgi-volume-trend": { col: 1, row: 8, w: 6, h: 2 },
+      "internet-breadth-trend": { col: 1, row: 10, w: 6, h: 2 },
+      nav: { col: 1, row: 12, w: 6, h: 1 }
+    };
+
+    let layout = {} as any;
+    try {
+      const saved = localStorage.getItem("gt-layout-grid-ace-v4");
+      if (saved) {
+        layout = JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error("Failed to load Ace grid layout:", e);
+    }
+
+    // Merge default layout config keys
+    Object.keys(defaultLayout).forEach((key) => {
+      if (!layout[key] || typeof layout[key].col !== "number") {
+        layout[key] = { ...(defaultLayout as any)[key] };
+      }
+    });
+
+    const blocks = container.querySelectorAll(".gt-block");
+
+    function applyLayout() {
+      blocks.forEach((block) => {
+        const id = block.getAttribute("data-id");
+        if (id && layout[id]) {
+          const cfg = layout[id];
+          const el = block as HTMLElement;
+          el.style.gridColumn = `${cfg.col} / span ${cfg.w}`;
+          el.style.gridRow = `${cfg.row} / span ${cfg.h}`;
+        }
+      });
+    }
+
+    function updateRowHeight() {
+      const width = container!.getBoundingClientRect().width;
+      const colWidth = width / 6;
+      container!.style.setProperty("--row-height", `${colWidth.toFixed(1)}px`);
+    }
+
+    applyLayout();
+    updateRowHeight();
+
+    window.addEventListener("resize", () => {
+      updateRowHeight();
+      Object.values(chartInstances).forEach((chart: any) => chart.resize());
+    });
+
+    // Reset button listener
+    const resetBtn = document.getElementById("gt-reset-layout");
+    if (resetBtn) {
+      resetBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        try {
+          localStorage.removeItem("gt-layout-grid-ace-v4");
+        } catch (err) {}
+        layout = JSON.parse(JSON.stringify(defaultLayout));
+        applyLayout();
+        updateRowHeight();
+      });
+    }
+
+    // Drag / Resize mechanics
+    const ghost = document.createElement("div");
+    ghost.className = "gt-grid-ghost";
+    ghost.style.display = "none";
+    container.appendChild(ghost);
+
+    let activeId: string | null = null;
+    let isDragging = false;
+    let isResizing = false;
+
+    let initialMouseX = 0;
+    let initialMouseY = 0;
+    let initialCol = 1;
+    let initialRow = 1;
+    let initialWSpan = 1;
+    let initialHSpan = 1;
+    let initialWidth = 0;
+    let initialHeight = 0;
+
+    let blockRect: DOMRect | null = null;
+    let containerRect: DOMRect | null = null;
+    let currentBlockEl: HTMLElement | null = null;
+
+    container.addEventListener("mousedown", (e) => {
+      if ((e.target as HTMLElement).closest("a") || (e.target as HTMLElement).closest("button")) {
+        return;
+      }
+
+      const handle = (e.target as HTMLElement).closest(".gt-drag-handle");
+      const resize = (e.target as HTMLElement).closest(".gt-resize-handle");
+
+      if (handle) {
+        e.preventDefault();
+        currentBlockEl = handle.closest(".gt-block") as HTMLElement;
+        if (!currentBlockEl) return;
+
+        activeId = currentBlockEl.getAttribute("data-id");
+        isDragging = true;
+
+        containerRect = container.getBoundingClientRect();
+        blockRect = currentBlockEl.getBoundingClientRect();
+
+        initialMouseX = e.clientX;
+        initialMouseY = e.clientY;
+
+        const cfg = layout[activeId!];
+        initialCol = cfg.col;
+        initialRow = cfg.row;
+        initialWSpan = cfg.w;
+        initialHSpan = cfg.h;
+
+        currentBlockEl.classList.add("gt-dragging");
+
+        ghost.style.gridColumn = currentBlockEl.style.gridColumn;
+        ghost.style.gridRow = currentBlockEl.style.gridRow;
+        ghost.style.display = "block";
+      } else if (resize) {
+        e.preventDefault();
+        currentBlockEl = resize.closest(".gt-block") as HTMLElement;
+        if (!currentBlockEl) return;
+
+        activeId = currentBlockEl.getAttribute("data-id");
+        isResizing = true;
+
+        containerRect = container.getBoundingClientRect();
+        blockRect = currentBlockEl.getBoundingClientRect();
+
+        initialMouseX = e.clientX;
+        initialMouseY = e.clientY;
+
+        initialWidth = blockRect.width;
+        initialHeight = blockRect.height;
+
+        const cfg = layout[activeId!];
+        initialCol = cfg.col;
+        initialRow = cfg.row;
+        initialWSpan = cfg.w;
+        initialHSpan = cfg.h;
+
+        currentBlockEl.classList.add("gt-resizing");
+
+        ghost.style.gridColumn = currentBlockEl.style.gridColumn;
+        ghost.style.gridRow = currentBlockEl.style.gridRow;
+        ghost.style.display = "block";
+      }
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!activeId || !currentBlockEl) return;
+
+      containerRect = container.getBoundingClientRect();
+      const colWidth = containerRect.width / 6;
+
+      if (isDragging) {
+        const deltaX = e.clientX - initialMouseX;
+        const deltaY = e.clientY - initialMouseY;
+
+        const mouseRelativeX = e.clientX - containerRect.left;
+        const mouseRelativeY = e.clientY - containerRect.top;
+
+        let targetCol = Math.floor(mouseRelativeX / colWidth) + 1;
+        let targetRow = Math.floor(mouseRelativeY / colWidth) + 1;
+
+        targetCol = Math.max(1, Math.min(6 - initialWSpan + 1, targetCol));
+        targetRow = Math.max(1, targetRow);
+
+        ghost.style.gridColumn = `${targetCol} / span ${initialWSpan}`;
+        ghost.style.gridRow = `${targetRow} / span ${initialHSpan}`;
+
+        currentBlockEl.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+        currentBlockEl.style.zIndex = "100";
+        currentBlockEl.style.pointerEvents = "none";
+      } else if (isResizing) {
+        const deltaX = e.clientX - initialMouseX;
+        const deltaY = e.clientY - initialMouseY;
+
+        const newWidth = initialWidth + deltaX;
+        const newHeight = initialHeight + deltaY;
+
+        let targetWSpan = Math.round(newWidth / colWidth);
+        targetWSpan = Math.max(1, Math.min(6 - initialCol + 1, targetWSpan));
+
+        let targetHSpan = Math.round(newHeight / colWidth);
+        targetHSpan = Math.max(1, targetHSpan);
+
+        ghost.style.gridColumn = `${initialCol} / span ${targetWSpan}`;
+        ghost.style.gridRow = `${initialRow} / span ${targetHSpan}`;
+      }
+    });
+
+    document.addEventListener("mouseup", () => {
+      if (!activeId || !currentBlockEl) return;
+
+      if (isDragging) {
+        currentBlockEl.classList.remove("gt-dragging");
+        currentBlockEl.style.transform = "";
+        currentBlockEl.style.zIndex = "";
+        currentBlockEl.style.pointerEvents = "";
+
+        const colParts = ghost.style.gridColumn.split("/");
+        const rowParts = ghost.style.gridRow.split("/");
+
+        if (colParts.length && rowParts.length) {
+          const finalCol = parseInt(colParts[0]);
+          const finalRow = parseInt(rowParts[0]);
+
+          if (!isNaN(finalCol) && !isNaN(finalRow)) {
+            layout[activeId!].col = finalCol;
+            layout[activeId!].row = finalRow;
+          }
+        }
+      } else if (isResizing) {
+        currentBlockEl.classList.remove("gt-resizing");
+
+        const colParts = ghost.style.gridColumn.split("span");
+        const rowParts = ghost.style.gridRow.split("span");
+
+        if (colParts.length > 1 && rowParts.length > 1) {
+          const finalWSpan = parseInt(colParts[1]);
+          const finalHSpan = parseInt(rowParts[1]);
+
+          if (!isNaN(finalWSpan) && !isNaN(finalHSpan)) {
+            layout[activeId!].w = finalWSpan;
+            layout[activeId!].h = finalHSpan;
+          }
+        }
+      }
+
+      ghost.style.display = "none";
+      applyLayout();
+      updateRowHeight();
+
+      try {
+        localStorage.setItem("gt-layout-grid-ace-v4", JSON.stringify(layout));
+      } catch (err) {}
+
+      // Trigger redraw of charts inside the block
+      Object.values(chartInstances).forEach((chart: any) => chart.resize());
+
+      activeId = null;
+      currentBlockEl = null;
+      isDragging = false;
+      isResizing = false;
+    });
+
+  });
+</script>
+
+<style>
+  /* Theme tokens mapping */
+  :root {
+    --bg-color: #060b13;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --block-bg: rgba(15, 23, 42, 0.45);
+    --border-color: rgba(255, 255, 255, 0.08);
+    --pill-bg: rgba(255, 255, 255, 0.02);
+    --pill-border: rgba(255, 255, 255, 0.06);
+    --btn-bg: rgba(15, 23, 42, 0.6);
+    --btn-sec-text: #f8fafc;
+    --btn-sec-hover: rgba(255, 255, 255, 0.06);
+    --btn-alt-text: #f59e0b;
+    --btn-alt-hover: rgba(245, 158, 11, 0.08);
+    --btn-cmc-text: #3861fb;
+    --btn-cmc-hover: rgba(56, 97, 251, 0.08);
+    --btn-reset-text: #ef4444;
+    --btn-reset-hover: rgba(239, 68, 68, 0.08);
+    --badge-border: rgba(56, 97, 251, 0.25);
+    --chart-grid-line: rgba(255, 255, 255, 0.06);
+    --row-height: 160px;
+  }
+
+  :root[data-theme="light"] {
+    --bg-color: #f8fafc;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --block-bg: rgba(255, 255, 255, 0.75);
+    --border-color: rgba(0, 0, 0, 0.08);
+    --pill-bg: rgba(0, 0, 0, 0.02);
+    --pill-border: rgba(0, 0, 0, 0.05);
+    --btn-bg: rgba(255, 255, 255, 0.85);
+    --btn-sec-text: #0f172a;
+    --btn-sec-hover: rgba(0, 0, 0, 0.04);
+    --btn-alt-text: #d97706;
+    --btn-alt-hover: rgba(217, 119, 6, 0.06);
+    --btn-cmc-text: #3861fb;
+    --btn-cmc-hover: rgba(56, 97, 251, 0.06);
+    --btn-reset-text: #ef4444;
+    --btn-reset-hover: rgba(239, 68, 68, 0.06);
+    --badge-border: rgba(56, 97, 251, 0.15);
+    --chart-grid-line: rgba(0, 0, 0, 0.05);
+  }
+
+  :root[data-theme="paper"] {
+    --bg-color: #003957;
+    --text-primary: #e2e8f0;
+    --text-secondary: rgba(226, 232, 240, 0.5);
+    --block-bg: #00283e;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --pill-bg: rgba(255, 255, 255, 0.04);
+    --pill-border: rgba(255, 255, 255, 0.08);
+    --btn-bg: #00283e;
+    --btn-sec-text: rgba(226, 232, 240, 0.8);
+    --btn-sec-hover: rgba(255, 255, 255, 0.06);
+    --btn-alt-text: #f59e0b;
+    --btn-alt-hover: rgba(245, 158, 11, 0.08);
+    --btn-cmc-text: #63b3ed;
+    --btn-cmc-hover: rgba(99, 179, 237, 0.12);
+    --btn-reset-text: rgba(226, 232, 240, 0.5);
+    --btn-reset-hover: rgba(239, 68, 68, 0.15);
+    --badge-border: rgba(255, 215, 0, 0.25);
+    --chart-grid-line: rgba(255, 255, 255, 0.08);
+  }
+
+  body {
+    background: var(--bg-color);
+    color: var(--text-primary);
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    transition: background-color 0.3s, color 0.3s;
+  }
+
+  /* Full Page Wrapper with Glows */
+  .gt-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    padding: 3rem 2rem 4rem;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  /* Ambient light effects */
+  .gt-orbs {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .gt-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.12;
+    transition: opacity 0.3s;
+  }
+
+  :root[data-theme="light"] .gt-orb { opacity: 0.04; }
+  :root[data-theme="paper"] .gt-orb { opacity: 0.15; }
+
+  .gt-orb1 {
+    width: 450px;
+    height: 450px;
+    background: #0080ff;
+    top: -100px;
+    left: 10%;
+  }
+
+  .gt-orb2 {
+    width: 400px;
+    height: 400px;
+    background: #00ffaa;
+    top: 20%;
+    right: 5%;
+  }
+
+  .gt-orb3 {
+    width: 500px;
+    height: 500px;
+    background: #ffaa00;
+    bottom: 5%;
+    left: 15%;
+  }
+
+  .gt-container {
+    position: relative;
+    z-index: 1;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  /* Theme selection pill */
+  .gt-theme-selector {
+    position: absolute;
+    top: 2.2rem;
+    right: 2rem;
+    display: flex;
+    background: var(--pill-bg);
+    border: 1px solid var(--pill-border);
+    border-radius: 99px;
+    padding: 0.2rem;
+    z-index: 10;
+  }
+
+  .gt-theme-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 1.05rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 99px;
+    transition: all 0.2s;
+    opacity: 0.6;
+  }
+
+  .gt-theme-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  .gt-theme-btn.gt-active {
+    background: var(--block-bg);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    opacity: 1;
+  }
+
+  /* Header style */
+  .gt-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .gt-badge {
+    display: inline-block;
+    background: rgba(0, 128, 255, 0.1);
+    color: #3b82f6;
+    border: 1px solid rgba(0, 128, 255, 0.2);
+    padding: 0.3rem 0.9rem;
+    border-radius: 99px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    margin-bottom: 0.8rem;
+  }
+
+  .gt-title {
+    font-size: 2.5rem;
+    font-weight: 850;
+    letter-spacing: -0.05em;
+    margin: 0 0 0.5rem;
+  }
+
+  .gt-sub {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    max-width: 650px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  /* 6-Column Draggable Dashboard Board */
+  .gt-board {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-auto-rows: minmax(var(--row-height), auto);
+    gap: 1.2rem;
+    position: relative;
+  }
+
+  /* Ghost guide item */
+  .gt-grid-ghost {
+    background: rgba(0, 128, 255, 0.08);
+    border: 2px dashed #0080ff;
+    border-radius: 12px;
+    box-sizing: border-box;
+    z-index: 5;
+  }
+
+  /* Standard widget box */
+  .gt-block {
+    background: var(--block-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-sizing: border-box;
+    backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.03);
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  }
+
+  .gt-block:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Drag state styling */
+  .gt-block.gt-dragging {
+    opacity: 0.8;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15);
+    border-color: #0080ff;
+    cursor: grabbing;
+  }
+
+  /* Resize state styling */
+  .gt-block.gt-resizing {
+    opacity: 0.85;
+    border-color: #00ff88;
+  }
+
+  /* Widget header */
+  .gt-panel-head {
+    display: flex;
+    align-items: center;
+    padding: 0.8rem 1rem 0.4rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  }
+
+  .gt-drag-handle {
+    cursor: grab;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    margin-right: 0.5rem;
+    opacity: 0.4;
+    transition: opacity 0.2s;
+  }
+
+  .gt-drag-handle:hover {
+    opacity: 0.8;
+  }
+
+  .gt-block.gt-dragging .gt-drag-handle {
+    cursor: grabbing;
+  }
+
+  .gt-panel-title {
+    font-size: 0.88rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--text-primary);
+  }
+
+  .gt-source {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    background: var(--pill-bg);
+    border: 1px solid var(--pill-border);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    margin-left: auto;
+    font-weight: 600;
+  }
+
+  /* Resize drag bottom-right corner */
+  .gt-resize-handle {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 12px;
+    height: 12px;
+    cursor: se-resize;
+    z-index: 10;
+  }
+
+  .gt-resize-handle::after {
+    content: "";
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 5px;
+    height: 5px;
+    border-right: 2px solid var(--text-secondary);
+    border-bottom: 2px solid var(--text-secondary);
+    opacity: 0.3;
+    transition: opacity 0.2s;
+  }
+
+  .gt-resize-handle:hover::after {
+    opacity: 0.8;
+  }
+
+  /* Widgets internal structures */
+  .gt-widget-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: auto;
+    padding: 0.5rem 1rem 1rem;
+  }
+
+  .gt-gauge-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin: auto 0;
+  }
+
+  .gt-gauge {
+    width: 100%;
+    max-width: 190px;
+    display: block;
+    margin: 0 auto;
+  }
+
+  .gt-gauge-desc {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: 0.4rem;
+    margin-bottom: 0;
+    line-height: 1.35;
+  }
+
+  /* General Card Layouts */
+  .gt-card-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    margin: auto 0;
+    width: 100%;
+    gap: 0.4rem;
+  }
+
+  .gt-metric-large {
+    font-size: 2.1rem;
+    font-weight: 900;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gt-metric-large .gt-unit {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin-left: 0.15rem;
+  }
+
+  .gt-badge-inline {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+  }
+
+  /* Sector Index Cards Layouts */
+  .gt-sector-row {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    justify-content: center;
+    padding: 0.2rem 0;
+  }
+
+  .gt-sector-score-box {
+    display: flex;
+    align-items: baseline;
+    gap: 0.8rem;
+  }
+
+  .gt-sector-score {
+    font-size: 1.8rem;
+    font-weight: 900;
+  }
+
+  .gt-sector-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
+    width: 100%;
+  }
+
+  .gt-sub-badge {
+    font-size: 0.72rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    font-weight: 700;
+    border: 1px solid transparent;
+  }
+
+  .gt-sub-badge.bg-greed {
+    background: rgba(22, 199, 132, 0.12);
+    color: #16c784;
+    border-color: rgba(22, 199, 132, 0.2);
+  }
+
+  .gt-sub-badge.bg-fear {
+    background: rgba(234, 57, 67, 0.12);
+    color: #ea3943;
+    border-color: rgba(234, 57, 67, 0.2);
+  }
+
+  .gt-sub-badge.bg-norm {
+    background: var(--pill-bg);
+    color: var(--text-secondary);
+    border-color: var(--pill-border);
+  }
+
+  /* Trend Chart Card Styling */
+  .gt-double-trend .gt-panel-head {
+    padding-bottom: 0.5rem;
+  }
+
+  .chart-body {
+    padding-top: 0.5rem;
+  }
+
+  .chart-container-el {
+    position: relative;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 220px;
+  }
+
+  /* Range selector tab headers */
+  .gt-chart-tabs {
+    display: flex;
+    background: var(--pill-bg);
+    border: 1px solid var(--pill-border);
+    border-radius: 6px;
+    padding: 0.15rem;
+    margin-left: auto;
+  }
+
+  .gt-tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 0.2rem 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .gt-tab-btn:hover {
+    color: var(--text-primary);
+    background: var(--btn-sec-hover);
+  }
+
+  .gt-tab-btn.active {
+    color: var(--bg-color);
+    background: var(--text-primary);
+  }
+
+  /* Navigation Block styling */
+  .gt-nav-block {
+    padding: 1.2rem;
+  }
+
+  .gt-nav {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 0.2rem;
+  }
+
+  .gt-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1.1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+    background: var(--btn-bg);
+    border: 1px solid var(--border-color);
+  }
+
+  .gt-btn-sec {
+    color: var(--btn-sec-text);
+  }
+  
+  .gt-btn-sec:hover {
+    background: var(--btn-sec-hover);
+    border-color: var(--text-primary);
+  }
+
+  .gt-btn-fgi {
+    color: #ffd700;
+    border-color: rgba(255, 215, 0, 0.2);
+  }
+
+  .gt-btn-fgi:hover {
+    background: rgba(255, 215, 0, 0.08);
+    border-color: #ffd700;
+  }
+
+  .gt-btn-econix {
+    color: #06b6d4;
+    border-color: rgba(6, 182, 212, 0.2);
+  }
+
+  .gt-btn-econix:hover {
+    background: rgba(6, 182, 212, 0.08);
+    border-color: #06b6d4;
+  }
+
+  .gt-btn-reset {
+    color: var(--btn-reset-text);
+    border-color: rgba(239, 68, 68, 0.15);
+  }
+
+  .gt-btn-reset:hover {
+    background: var(--btn-reset-hover);
+    border-color: #ef4444;
+    color: #ef4444;
+  }
+
+  /* Responsiveness Column Overrides */
+  @media (max-width: 1024px) {
+    .gt-board {
+      grid-template-columns: repeat(3, 1fr);
+      grid-auto-rows: minmax(180px, auto);
+    }
+    /* Expand widgets to occupy full row in mobile columns */
+    [data-id] {
+      grid-column: span 3 !important;
+      grid-row: auto !important;
+    }
+  }
+</style>
