@@ -1,63 +1,83 @@
 ---
-import Layout from '../layouts/Layout.astro';
+import Layout from "../layouts/Layout.astro";
+import { fetchFgiData } from "../utils/fgi";
 
-function polar(cx, cy, r, deg) {
+// Utility helper functions
+function polar(cx: number, cy: number, r: number, deg: number) {
   const rad = (deg * Math.PI) / 180;
   return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
 }
 
-function gaugeArc(cx, cy, r, fromVal, toVal) {
+function gaugeArc(
+  cx: number,
+  cy: number,
+  r: number,
+  fromVal: number,
+  toVal: number,
+) {
   const fromDeg = 180 - fromVal * 1.8;
-  const toDeg   = 180 - toVal   * 1.8;
+  const toDeg = 180 - toVal * 1.8;
   const p1 = polar(cx, cy, r, fromDeg);
   const p2 = polar(cx, cy, r, toDeg);
   const large = Math.abs(toVal - fromVal) > 50 ? 1 : 0;
   return `M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} A ${r} ${r} 0 ${large} 0 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
 }
 
-function valueColor(v) {
-  if (v <= 20) return '#ea3943';
-  if (v <= 40) return '#f97316';
-  if (v <= 60) return '#eab308';
-  if (v <= 80) return '#84cc16';
-  return '#16c784';
+function valueColor(v: number) {
+  if (v <= 20) return "#ea3943";
+  if (v <= 40) return "#f97316";
+  if (v <= 60) return "#eab308";
+  if (v <= 80) return "#84cc16";
+  return "#16c784";
 }
 
-function zhClass(cls) {
-  const s = (cls || '').toLowerCase();
-  if (s === 'extreme fear')  return '极度恐惧';
-  if (s === 'fear')          return '恐惧';
-  if (s === 'neutral')       return '中性';
-  if (s === 'greed')         return '贪婪';
-  if (s === 'extreme greed') return '极度贪婪';
+function zhClass(cls: string) {
+  const s = (cls || "").toLowerCase();
+  if (s === "extreme fear") return "极度恐惧";
+  if (s === "fear") return "恐惧";
+  if (s === "neutral") return "中性";
+  if (s === "greed") return "贪婪";
+  if (s === "extreme greed") return "极度贪婪";
   return cls;
 }
 
-function fmtDate(ts) {
+// Custom parser to map number FGI back to Chinese class
+function numberFgiZhClass(v: number) {
+  if (v <= 25) return "极度恐惧";
+  if (v <= 45) return "恐惧";
+  if (v <= 55) return "中性";
+  if (v <= 75) return "贪婪";
+  return "极度贪婪";
+}
+
+function fmtDate(ts: any) {
   const ms = Number(ts) < 1e12 ? Number(ts) * 1000 : Number(ts);
-  return new Date(ms).toLocaleDateString('zh-CN', {
-    year: 'numeric', month: 'short', day: 'numeric',
+  return new Date(ms).toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   });
 }
 
+// 1. Fetch original CMC data if API Key is available
 const CMC_KEY = import.meta.env.CMC_API_KEY;
 let cmcData = null;
 let cmcError = null;
 
 if (CMC_KEY) {
   try {
-    const fetchPage = async (limit, start = 1) => {
-      const url = `https://pro-api.coinmarketcap.com/v3/fear-and-greed/historical?limit=${limit}${start > 1 ? `&start=${start}` : ''}`;
+    const fetchPage = async (limit: number, start = 1) => {
+      const url = `https://pro-api.coinmarketcap.com/v3/fear-and-greed/historical?limit=${limit}${start > 1 ? `&start=${start}` : ""}`;
       const res = await fetch(url, {
-        headers: { 'X-CMC_PRO_API_KEY': CMC_KEY, Accept: 'application/json' }
+        headers: { "X-CMC_PRO_API_KEY": CMC_KEY, Accept: "application/json" },
       });
       return res.json();
     };
 
     const fetchLatest = async () => {
-      const url = 'https://pro-api.coinmarketcap.com/v3/fear-and-greed/latest';
+      const url = "https://pro-api.coinmarketcap.com/v3/fear-and-greed/latest";
       const res = await fetch(url, {
-        headers: { 'X-CMC_PRO_API_KEY': CMC_KEY, Accept: 'application/json' }
+        headers: { "X-CMC_PRO_API_KEY": CMC_KEY, Accept: "application/json" },
       });
       return res.json();
     };
@@ -66,7 +86,7 @@ if (CMC_KEY) {
       fetchLatest(),
       fetchPage(500, 1),
       fetchPage(500, 501),
-      fetchPage(500, 1001)
+      fetchPage(500, 1001),
     ]);
 
     const allData = [];
@@ -76,420 +96,1478 @@ if (CMC_KEY) {
 
     if (allData.length > 0) {
       cmcData = allData;
-      
+
       const latestItem = latestRes?.data ?? null;
       if (latestItem && cmcData.length > 0) {
-        const latestTs = Math.floor(new Date(latestItem.update_time).getTime() / 1000);
-        const latestDateStr = new Date(latestTs * 1000).toISOString().split('T')[0];
-        const firstHistDateStr = new Date(Number(cmcData[0].timestamp) * 1000).toISOString().split('T')[0];
-        
-        if (latestDateStr !== firstHistDateStr && latestTs > Number(cmcData[0].timestamp)) {
+        const latestTs = Math.floor(
+          new Date(latestItem.update_time).getTime() / 1000,
+        );
+        const latestDateStr = new Date(latestTs * 1000)
+          .toISOString()
+          .split("T")[0];
+        const firstHistDateStr = new Date(Number(cmcData[0].timestamp) * 1000)
+          .toISOString()
+          .split("T")[0];
+
+        if (
+          latestDateStr !== firstHistDateStr &&
+          latestTs > Number(cmcData[0].timestamp)
+        ) {
           cmcData.unshift({
             timestamp: String(latestTs),
             value: latestItem.value,
-            value_classification: latestItem.value_classification
+            value_classification: latestItem.value_classification,
           });
         } else {
           cmcData[0] = {
             timestamp: cmcData[0].timestamp,
             value: latestItem.value,
-            value_classification: latestItem.value_classification
+            value_classification: latestItem.value_classification,
           };
         }
       }
     } else {
-      cmcError = p1?.status?.error_message ?? p2?.status?.error_message ?? p3?.status?.error_message ?? 'API 返回数据异常';
+      cmcError =
+        p1?.status?.error_message ??
+        p2?.status?.error_message ??
+        p3?.status?.error_message ??
+        "API 返回数据异常";
     }
-  } catch (e) {
+  } catch (e: any) {
     cmcError = e.message;
   }
 } else {
-  cmcError = 'NO_KEY';
+  cmcError = "NO_KEY";
 }
 
-const latest    = cmcData?.[0]  ?? null;
-const yesterday = cmcData?.[1]  ?? null;
-const lastWeek  = cmcData?.[7]  ?? null;
+const latest = cmcData?.[0] ?? null;
+const yesterday = cmcData?.[1] ?? null;
+const lastWeek = cmcData?.[7] ?? null;
 const lastMonth = cmcData?.[30] ?? null;
 
-let yearHigh = null, yearLow = null;
+let yearHigh = null,
+  yearLow = null;
 if (cmcData) {
   const yearlyData = cmcData.slice(0, 365);
   for (const d of yearlyData) {
     if (!yearHigh || d.value > yearHigh.value) yearHigh = d;
-    if (!yearLow  || d.value < yearLow.value)  yearLow  = d;
+    if (!yearLow || d.value < yearLow.value) yearLow = d;
   }
 }
 
 const chartRaw = cmcData ? [...cmcData.slice(0, 30)].reverse() : [];
-const CW = 560, CH = 100, CPT = 6;
+const CW = 560,
+  CH = 100,
+  CPT = 6;
 const chartPts = chartRaw.map((d, i) => {
   const x = chartRaw.length > 1 ? (i / (chartRaw.length - 1)) * CW : CW / 2;
   const y = CPT + ((100 - d.value) / 100) * (CH - CPT * 2);
   return { x: +x.toFixed(2), y: +y.toFixed(2), v: d.value };
 });
-const polyline = chartPts.map(p => `${p.x},${p.y}`).join(' ');
-const area = chartPts.length ? `0,${CH} ${polyline} ${CW},${CH}` : '';
+const polyline = chartPts.map((p) => `${p.x},${p.y}`).join(" ");
+const area = chartPts.length ? `0,${CH} ${polyline} ${CW},${CH}` : "";
 
-const GCX = 100, GCY = 95, GR = 74;
+const GCX = 100,
+  GCY = 95,
+  GR = 74;
 const zones = [
-  { from:  0, to: 20, color: '#ea3943', label: '极度恐惧' },
-  { from: 20, to: 40, color: '#f97316', label: '恐惧' },
-  { from: 40, to: 60, color: '#eab308', label: '中性' },
-  { from: 60, to: 80, color: '#84cc16', label: '贪婪' },
-  { from: 80, to:100, color: '#16c784', label: '极度贪婪' },
+  { from: 0, to: 20, color: "#ea3943", label: "极度恐惧" },
+  { from: 20, to: 40, color: "#f97316", label: "恐惧" },
+  { from: 40, to: 60, color: "#eab308", label: "中性" },
+  { from: 60, to: 80, color: "#84cc16", label: "贪婪" },
+  { from: 80, to: 100, color: "#16c784", label: "极度贪婪" },
 ];
-const needleDeg   = latest ? 180 - latest.value * 1.8 : 90;
-const needleTip   = polar(GCX, GCY, GR - 8, needleDeg);
-const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
+const needleDeg = latest ? 180 - latest.value * 1.8 : 90;
+const needleTip = polar(GCX, GCY, GR - 8, needleDeg);
+const needleColor = latest ? valueColor(latest.value) : "#94a3b8";
+
+// 2. Fetch new FGI data (Stock, Crypto, Gold) from feargreedindex.org
+let fgiData = null;
+let fgiError = null;
+
+try {
+  fgiData = await fetchFgiData();
+} catch (e: any) {
+  fgiError = e.message;
+}
+
+// Function to extract metrics for new FGI components
+function getAssetMetrics(hist: any[]) {
+  if (!hist || hist.length === 0) return null;
+  const latestVal = hist[hist.length - 1];
+  const yesterdayVal = hist[hist.length - 2] || null;
+  const lastWeekVal = hist[hist.length - 8] || null;
+  const lastMonthVal = hist[hist.length - 31] || null;
+  const lastQuarterVal = hist[hist.length - 91] || null;
+  const lastHalfYearVal = hist[hist.length - 181] || null;
+  const lastYearVal = hist[hist.length - 366] || null;
+
+  const yearlySlice = hist.slice(-365);
+  let yHigh = null;
+  let yLow = null;
+  for (const d of yearlySlice) {
+    if (!yHigh || d.value > yHigh.value) yHigh = d;
+    if (!yLow || d.value < yLow.value) yLow = d;
+  }
+
+  return {
+    latest: latestVal,
+    yesterday: yesterdayVal,
+    lastWeek: lastWeekVal,
+    lastMonth: lastMonthVal,
+    lastQuarter: lastQuarterVal,
+    lastHalfYear: lastHalfYearVal,
+    lastYear: lastYearVal,
+    yearHigh: yHigh,
+    yearLow: yLow,
+  };
+}
+
+const cryptoMetrics = fgiData
+  ? getAssetMetrics(fgiData.crypto.historicalData)
+  : null;
+const goldMetrics = fgiData
+  ? getAssetMetrics(fgiData.gold.historicalData)
+  : null;
+const stockMetrics = fgiData
+  ? getAssetMetrics(fgiData.stock.historicalData)
+  : null;
+
+// SVG constants for circular gauges
+const NGCX = 100,
+  NGCY = 92,
+  NGR = 72;
+const nzones = [
+  { from: 0, to: 25, color: "#ea3943", label: "极度恐惧" },
+  { from: 25, to: 45, color: "#f97316", label: "恐惧" },
+  { from: 45, to: 55, color: "#eab308", label: "中性" },
+  { from: 55, to: 75, color: "#84cc16", label: "贪婪" },
+  { from: 75, to: 100, color: "#16c784", label: "极度贪婪" },
+];
 ---
 
 <Layout>
-<div class="gt-wrapper">
-  <!-- 背景光晕 -->
-  <div class="gt-orbs">
-    <div class="gt-orb gt-orb1"></div>
-    <div class="gt-orb gt-orb2"></div>
-    <div class="gt-orb gt-orb3"></div>
-  </div>
-
-  <!-- 主题切换栏 -->
-  <div class="gt-theme-selector">
-    <button class="gt-theme-btn" data-theme-val="dark" title="深色模式">🌙</button>
-    <button class="gt-theme-btn" data-theme-val="light" title="浅色模式">☀️</button>
-    <button class="gt-theme-btn" data-theme-val="paper" title="护眼纸黄">📖</button>
-  </div>
-
-  <div class="gt-container">
-
-    <!-- 标题 -->
-    <div class="gt-header">
-      <div class="gt-badge">📈 市场情绪</div>
-      <h1 class="gt-title">金时纪</h1>
-      <p class="gt-sub">洞察加密市场的贪婪与恐惧</p>
+  <div class="gt-wrapper">
+    <!-- 背景光晕 -->
+    <div class="gt-orbs">
+      <div class="gt-orb gt-orb1"></div>
+      <div class="gt-orb gt-orb2"></div>
+      <div class="gt-orb gt-orb3"></div>
     </div>
 
-    <!-- 💡 可拖拽及自适应大小的控制台面板 (九宫格正方形) 💡 -->
-    <div class="gt-board">
-      
-      <!-- Block 1: Alternative.me 指数 -->
-      <div class="gt-block gt-altme" data-id="altme">
-        <div class="gt-panel-head">
-          <div class="gt-drag-handle" title="按住拖拽调整位置">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <circle cx="9" cy="5" r="2"/>
-              <circle cx="9" cy="12" r="2"/>
-              <circle cx="9" cy="19" r="2"/>
-              <circle cx="15" cy="5" r="2"/>
-              <circle cx="15" cy="12" r="2"/>
-              <circle cx="15" cy="19" r="2"/>
-            </svg>
-          </div>
-          <h2 class="gt-panel-title">Crypto Fear &amp; Greed</h2>
-          <span class="gt-source">alternative.me</span>
-        </div>
-        <a
-          href="https://alternative.me/crypto/fear-and-greed-index/"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="gt-img-link"
-        >
-          <div class="gt-img-wrap">
-            <img
-              src="https://alternative.me/crypto/fear-and-greed-index.png"
-              alt="Crypto Fear & Greed Index"
-              class="gt-img"
-              loading="lazy"
-            />
-            <div class="gt-img-ov">
-              <span class="gt-ov-icon">🔗</span>
-              <span class="gt-ov-text">查看详情</span>
-            </div>
-          </div>
-        </a>
-        <p class="gt-hint">每日自动更新</p>
-        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+    <!-- 主题切换栏 -->
+    <div class="gt-theme-selector">
+      <button class="gt-theme-btn" data-theme-val="dark" title="深色模式"
+        >🌙</button
+      >
+      <button class="gt-theme-btn" data-theme-val="light" title="浅色模式"
+        >☀️</button
+      >
+      <button class="gt-theme-btn" data-theme-val="paper" title="护眼纸黄"
+        >📖</button
+      >
+    </div>
+
+    <div class="gt-container">
+      <!-- 标题 -->
+      <div class="gt-header">
+        <div class="gt-badge">📊 全市场情绪面板</div>
+        <h1 class="gt-title">金时纪</h1>
+        <p class="gt-sub">实时洞察股票、加密与黄金市场的贪婪与恐惧情绪</p>
       </div>
 
-      <!-- Block 2: CMC 仪表盘 -->
-      <div class="gt-block gt-cmc-gauge" data-id="cmc-gauge">
-        <div class="gt-panel-head">
-          <div class="gt-drag-handle" title="按住拖拽调整位置">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <circle cx="9" cy="5" r="2"/>
-              <circle cx="9" cy="12" r="2"/>
-              <circle cx="9" cy="19" r="2"/>
-              <circle cx="15" cy="5" r="2"/>
-              <circle cx="15" cy="12" r="2"/>
-              <circle cx="15" cy="19" r="2"/>
-            </svg>
-          </div>
-          <h2 class="gt-panel-title gt-cmc-title">
-            <a href="https://coinmarketcap.com/charts/fear-and-greed-index/" target="_blank" rel="noopener noreferrer">CMC Gauge</a>
-          </h2>
-          <span class="gt-cmc-badge">CMC</span>
-        </div>
-
-        <a
-          href="https://coinmarketcap.com/charts/fear-and-greed-index/"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="gt-cmc-body-link"
-        >
-          {cmcError ? (
-            <div class="gt-placeholder">
-              {cmcError === 'NO_KEY' ? (
-                <div class="gt-ph-inner">
-                  <div class="gt-ph-icon">🔑</div>
-                  <p class="gt-ph-title">需要配置 API Key</p>
-                  <p class="gt-ph-desc">请设置环境变量 <code>CMC_API_KEY</code></p>
-                </div>
-              ) : (
-                <div class="gt-ph-inner">
-                  <div class="gt-ph-icon">⚠️</div>
-                  <p class="gt-ph-title">数据加载失败</p>
-                  <p class="gt-ph-desc">{cmcError}</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div class="gt-gauge-wrap">
-              <svg viewBox="0 0 200 105" class="gt-gauge" aria-label={`当前指数: ${latest?.value}`}>
-                {zones.map(z => (
-                  <path
-                    d={gaugeArc(GCX, GCY, GR, z.from, z.to)}
-                    stroke={z.color}
-                    stroke-width="13"
-                    fill="none"
-                    stroke-linecap="butt"
-                    opacity="0.9"
-                  />
-                ))}
-                <path d={gaugeArc(GCX, GCY, GR - 22, 0, 100)} stroke="rgba(255,255,255,0.05)" stroke-width="1" fill="none"/>
-                <line x1={GCX} y1={GCY} x2={needleTip.x.toFixed(2)} y2={needleTip.y.toFixed(2)} stroke={needleColor} stroke-width="2.5" stroke-linecap="round"/>
-                <circle cx={GCX} cy={GCY} r="5.5" fill={needleColor}/>
-                <circle cx={GCX} cy={GCY} r="2.5" fill="var(--block-bg)"/>
-                <text x={GCX} y={GCY - 16} text-anchor="middle" font-size="26" font-weight="800" fill={needleColor}>{latest?.value}</text>
-                <text x={GCX} y={GCY - 3} text-anchor="middle" font-size="7" fill="var(--text-secondary)" letter-spacing="0.8">{zhClass(latest?.value_classification)}</text>
-                <text x="14"  y={GCY + 14} font-size="6.5" fill="var(--text-secondary)" opacity="0.6" text-anchor="middle">0</text>
-                <text x={GCX} y="10"       font-size="6.5" fill="var(--text-secondary)" opacity="0.6" text-anchor="middle">50</text>
-                <text x="186" y={GCY + 14} font-size="6.5" fill="var(--text-secondary)" opacity="0.6" text-anchor="middle">100</text>
+      <!-- 可拖拽及自适应大小的控制台面板 (6列) -->
+      <div class="gt-board">
+        <!-- ==================== BLOCK 1: Alternative.me 指数 ==================== -->
+        <div class="gt-block gt-altme" data-id="altme">
+          <div class="gt-panel-head">
+            <div class="gt-drag-handle" title="按住拖拽调整位置">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="currentColor"
+              >
+                <circle cx="9" cy="5" r="2"></circle><circle
+                  cx="9"
+                  cy="12"
+                  r="2"></circle><circle cx="9" cy="19" r="2"></circle>
+                <circle cx="15" cy="5" r="2"></circle><circle
+                  cx="15"
+                  cy="12"
+                  r="2"></circle><circle cx="15" cy="19" r="2"></circle>
               </svg>
-
-              <div class="gt-pills">
-                {[
-                  { label: '昨天', data: yesterday },
-                  { label: '上周', data: lastWeek  },
-                  { label: '上月', data: lastMonth },
-                ].map(({ label, data }) => (
-                  <div class="gt-pill">
-                    <span class="gt-pill-label">{label}</span>
-                    <span class="gt-pill-val" style={data ? `color:${valueColor(data.value)}` : ''}>
-                      {data ? `${zhClass(data.value_classification)} · ${data.value}` : '—'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {(yearHigh || yearLow) && (
-                <div class="gt-year">
-                  {yearHigh && (
-                    <div class="gt-year-block">
-                      <div class="gt-year-title">
-                        🏆 年度高点 <span style={`color:${valueColor(yearHigh.value)};font-weight:700`}>{zhClass(yearHigh.value_classification)} {yearHigh.value}</span>
-                      </div>
-                      <div class="gt-year-d">{fmtDate(yearHigh.timestamp)}</div>
-                    </div>
-                  )}
-                  {yearLow && (
-                    <div class="gt-year-block">
-                      <div class="gt-year-title">
-                        📉 年度低点 <span style={`color:${valueColor(yearLow.value)};font-weight:700`}>{zhClass(yearLow.value_classification)} {yearLow.value}</span>
-                      </div>
-                      <div class="gt-year-d">{fmtDate(yearLow.timestamp)}</div>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
-          )}
-        </a>
-        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
-      </div>
-
-      <!-- Block 3: CMC 趋势图 + 情绪区间说明 (已合并为单个组件) -->
-      <div class="gt-block gt-cmc-chart" data-id="cmc-chart">
-        <div class="gt-panel-head" style="padding-bottom: 0.5rem;">
-          <div class="gt-drag-handle" title="按住拖拽调整位置">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <circle cx="9" cy="5" r="2"/>
-              <circle cx="9" cy="12" r="2"/>
-              <circle cx="9" cy="19" r="2"/>
-              <circle cx="15" cy="5" r="2"/>
-              <circle cx="15" cy="12" r="2"/>
-              <circle cx="15" cy="19" r="2"/>
-            </svg>
+            <h2 class="gt-panel-title">Crypto Fear &amp; Greed</h2>
+            <span class="gt-source">alternative.me</span>
           </div>
-          <h2 class="gt-panel-title gt-cmc-title">
-            <a href="https://coinmarketcap.com/charts/fear-and-greed-index/" target="_blank" rel="noopener noreferrer">CMC Trend &amp; Ranges</a>
-          </h2>
-          <span class="gt-cmc-badge">CMC</span>
+          <a
+            href="https://alternative.me/crypto/fear-and-greed-index/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="gt-img-link"
+          >
+            <div class="gt-img-wrap">
+              <img
+                src="https://alternative.me/crypto/fear-and-greed-index.png"
+                alt="Crypto Fear & Greed Index"
+                class="gt-img"
+                loading="lazy"
+              />
+              <div class="gt-img-ov">
+                <span class="gt-ov-icon">🔗</span>
+                <span class="gt-ov-text">查看详情</span>
+              </div>
+            </div>
+          </a>
+          <p class="gt-hint">每日自动更新</p>
+          <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
         </div>
 
-        <div class="gt-chart-info-combined">
-          <!-- 上部分：折线趋势图 -->
+        <!-- ==================== BLOCK 2: CMC 仪表盘 ==================== -->
+        <div class="gt-block gt-cmc-gauge" data-id="cmc-gauge">
+          <div class="gt-panel-head">
+            <div class="gt-drag-handle" title="按住拖拽调整位置">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="currentColor"
+              >
+                <circle cx="9" cy="5" r="2"></circle><circle
+                  cx="9"
+                  cy="12"
+                  r="2"></circle><circle cx="9" cy="19" r="2"></circle>
+                <circle cx="15" cy="5" r="2"></circle><circle
+                  cx="15"
+                  cy="12"
+                  r="2"></circle><circle cx="15" cy="19" r="2"></circle>
+              </svg>
+            </div>
+            <h2 class="gt-panel-title gt-cmc-title">
+              <a
+                href="https://coinmarketcap.com/charts/fear-and-greed-index/"
+                target="_blank"
+                rel="noopener noreferrer">CMC Gauge</a
+              >
+            </h2>
+            <span class="gt-cmc-badge">CMC</span>
+          </div>
+
           <a
             href="https://coinmarketcap.com/charts/fear-and-greed-index/"
             target="_blank"
             rel="noopener noreferrer"
             class="gt-cmc-body-link"
-            style="border-bottom: 1px solid var(--border-color); padding: 0.8rem 1.5rem 1rem 1.5rem;"
           >
-            {cmcError ? (
-              <div class="gt-placeholder">
-                <div class="gt-ph-inner">
-                  <p class="gt-ph-title">数据不可用</p>
-                </div>
-              </div>
-            ) : (
-              <div class="gt-chart-wrap-container" id="gt-chart-container" data-cmc={JSON.stringify(cmcData)} style="border:none; margin:0; padding:0;">
-                <div class="gt-chart-header">
-                  <p class="gt-chart-label">过去 30 天趋势</p>
-                  <div class="gt-chart-tabs">
-                    <button class="gt-tab-btn active" data-range="30">30天</button>
-                    <button class="gt-tab-btn" data-range="365">1年</button>
-                    <button class="gt-tab-btn" data-range="1095">3年</button>
-                    <button class="gt-tab-btn" data-range="1825">5年</button>
-                  </div>
-                </div>
-                <div class="gt-chart-wrap">
-                  <svg viewBox={`0 0 ${CW} ${CH}`} class="gt-line-chart" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%"   stop-color="#f59e0b" stop-opacity="0.3"/>
-                        <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
-                      </linearGradient>
-                    </defs>
-                    {zones.slice().reverse().map(z => {
-                      const y1 = CPT + ((100 - z.to)   / 100) * (CH - CPT * 2);
-                      const y2 = CPT + ((100 - z.from) / 100) * (CH - CPT * 2);
-                      return <rect x="0" y={y1.toFixed(1)} width={CW} height={(y2-y1).toFixed(1)} fill={z.color} opacity="0.05"/>;
-                    })}
-                    {[20,40,60,80].map(v => {
-                      const gy = CPT + ((100-v)/100)*(CH-CPT*2);
-                      return <line x1="0" y1={gy.toFixed(1)} x2={CW} y2={gy.toFixed(1)} stroke="var(--chart-grid-line)" stroke-width="1" stroke-dasharray="3 4"/>;
-                    })}
-                    {area && <polygon points={area} fill="url(#areaGrad)"/>}
-                    {polyline && <polyline points={polyline} fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>}
-                    {chartPts.length > 0 && (
-                      <circle
-                        cx={chartPts[chartPts.length-1].x}
-                        cy={chartPts[chartPts.length-1].y}
-                        r="3.5" fill={needleColor} stroke="#06060f" stroke-width="1.5"
-                      />
-                    )}
-                  </svg>
-                  <div class="gt-y-axis">
-                    <span>100</span><span>80</span><span>60</span><span>40</span><span>20</span><span>0</span>
-                  </div>
-                  {chartRaw.length > 0 && (
-                    <div class="gt-x-axis">
-                      <span>{fmtDate(chartRaw[0].timestamp)}</span>
-                      <span>{fmtDate(chartRaw[Math.floor(chartRaw.length/2)].timestamp)}</span>
-                      <span>{fmtDate(chartRaw[chartRaw.length-1].timestamp)}</span>
+            {
+              cmcError ? (
+                <div class="gt-placeholder">
+                  {cmcError === "NO_KEY" ? (
+                    <div class="gt-ph-inner">
+                      <div class="gt-ph-icon">🔑</div>
+                      <p class="gt-ph-title">需要配置 API Key</p>
+                      <p class="gt-ph-desc">
+                        请设置环境变量 <code>CMC_API_KEY</code>
+                      </p>
+                    </div>
+                  ) : (
+                    <div class="gt-ph-inner">
+                      <div class="gt-ph-icon">⚠️</div>
+                      <p class="gt-ph-title">数据加载失败</p>
+                      <p class="gt-ph-desc">{cmcError}</p>
                     </div>
                   )}
                 </div>
+              ) : (
+                <div class="gt-gauge-wrap">
+                  <svg
+                    viewBox="0 0 200 105"
+                    class="gt-gauge"
+                    aria-label={`当前指数: ${latest?.value}`}
+                  >
+                    {zones.map((z) => (
+                      <path
+                        d={gaugeArc(GCX, GCY, GR, z.from, z.to)}
+                        stroke={z.color}
+                        stroke-width="13"
+                        fill="none"
+                        stroke-linecap="butt"
+                        opacity="0.9"
+                      />
+                    ))}
+                    <path
+                      d={gaugeArc(GCX, GCY, GR - 22, 0, 100)}
+                      stroke="rgba(255,255,255,0.05)"
+                      stroke-width="1"
+                      fill="none"
+                    />
+                    <line
+                      x1={GCX}
+                      y1={GCY}
+                      x2={needleTip.x.toFixed(2)}
+                      y2={needleTip.y.toFixed(2)}
+                      stroke={needleColor}
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                    />
+                    <circle cx={GCX} cy={GCY} r="5.5" fill={needleColor} />
+                    <circle cx={GCX} cy={GCY} r="2.5" fill="var(--block-bg)" />
+                    <text
+                      x={GCX}
+                      y={GCY - 16}
+                      text-anchor="middle"
+                      font-size="26"
+                      font-weight="800"
+                      fill={needleColor}
+                    >
+                      {latest?.value}
+                    </text>
+                    <text
+                      x={GCX}
+                      y={GCY - 3}
+                      text-anchor="middle"
+                      font-size="7"
+                      fill="var(--text-secondary)"
+                      letter-spacing="0.8"
+                    >
+                      {zhClass(latest?.value_classification)}
+                    </text>
+                    <text
+                      x="14"
+                      y={GCY + 14}
+                      font-size="6.5"
+                      fill="var(--text-secondary)"
+                      opacity="0.6"
+                      text-anchor="middle"
+                    >
+                      0
+                    </text>
+                    <text
+                      x={GCX}
+                      y="10"
+                      font-size="6.5"
+                      fill="var(--text-secondary)"
+                      opacity="0.6"
+                      text-anchor="middle"
+                    >
+                      50
+                    </text>
+                    <text
+                      x="186"
+                      y={GCY + 14}
+                      font-size="6.5"
+                      fill="var(--text-secondary)"
+                      opacity="0.6"
+                      text-anchor="middle"
+                    >
+                      100
+                    </text>
+                  </svg>
 
-                <div class="gt-legend">
-                  {zones.map(z => (
-                    <div class="gt-legend-item">
-                      <span class="gt-legend-dot" style={`background:${z.color}`}></span>
-                      <span class="gt-legend-label">{z.label}</span>
+                  <div class="gt-pills">
+                    {[
+                      { label: "昨天", data: yesterday },
+                      { label: "上周", data: lastWeek },
+                      { label: "上月", data: lastMonth },
+                    ].map(({ label, data }) => (
+                      <div class="gt-pill">
+                        <span class="gt-pill-label">{label}</span>
+                        <span
+                          class="gt-pill-val"
+                          style={data ? `color:${valueColor(data.value)}` : ""}
+                        >
+                          {data
+                            ? `${zhClass(data.value_classification)} · ${data.value}`
+                            : "—"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {(yearHigh || yearLow) && (
+                    <div class="gt-year">
+                      {yearHigh && (
+                        <div class="gt-year-block">
+                          <div class="gt-year-title">
+                            🏆 年度高点{" "}
+                            <span
+                              style={`color:${valueColor(yearHigh.value)};font-weight:700`}
+                            >
+                              {zhClass(yearHigh.value_classification)}{" "}
+                              {yearHigh.value}
+                            </span>
+                          </div>
+                          <div class="gt-year-d">
+                            {fmtDate(yearHigh.timestamp)}
+                          </div>
+                        </div>
+                      )}
+                      {yearLow && (
+                        <div class="gt-year-block">
+                          <div class="gt-year-title">
+                            📉 年度低点{" "}
+                            <span
+                              style={`color:${valueColor(yearLow.value)};font-weight:700`}
+                            >
+                              {zhClass(yearLow.value_classification)}{" "}
+                              {yearLow.value}
+                            </span>
+                          </div>
+                          <div class="gt-year-d">
+                            {fmtDate(yearLow.timestamp)}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
-            )}
+              )
+            }
           </a>
+          <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+        </div>
 
-          <!-- 下部分：情绪区间说明 -->
-          <div class="gt-info">
-            {[
-              { icon: '😱', label: '极度恐惧', range: '0–20',   desc: '买入机会',  color: '#ea3943' },
-              { icon: '😨', label: '恐惧',     range: '21–40',  desc: '情绪谨慎',  color: '#f97316' },
-              { icon: '😐', label: '中性',     range: '41–60',  desc: '情绪平稳',  color: '#eab308' },
-              { icon: '😊', label: '贪婪',     range: '61–80',  desc: '注意风险',  color: '#84cc16' },
-              { icon: '🤑', label: '极度贪婪', range: '81–100', desc: '卖出信号',  color: '#16c784' },
-            ].map(c => (
-              <div class="gt-icard" style={`--c:${c.color}`}>
-                <div class="gt-icard-icon">{c.icon}</div>
-                <div class="gt-icard-label" style={`color:${c.color}`}>{c.label}</div>
-                <div class="gt-icard-range">{c.range}</div>
-                <div class="gt-icard-desc">{c.desc}</div>
-              </div>
-            ))}
+        <!-- ==================== BLOCK 3: CMC 趋势图 + 情绪区间说明 ==================== -->
+        <div class="gt-block gt-cmc-chart" data-id="cmc-chart">
+          <div class="gt-panel-head" style="padding-bottom: 0.5rem;">
+            <div class="gt-drag-handle" title="按住拖拽调整位置">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="currentColor"
+              >
+                <circle cx="9" cy="5" r="2"></circle><circle
+                  cx="9"
+                  cy="12"
+                  r="2"></circle><circle cx="9" cy="19" r="2"></circle>
+                <circle cx="15" cy="5" r="2"></circle><circle
+                  cx="15"
+                  cy="12"
+                  r="2"></circle><circle cx="15" cy="19" r="2"></circle>
+              </svg>
+            </div>
+            <h2 class="gt-panel-title gt-cmc-title">
+              <a
+                href="https://coinmarketcap.com/charts/fear-and-greed-index/"
+                target="_blank"
+                rel="noopener noreferrer">CMC Trend &amp; Ranges</a
+              >
+            </h2>
+            <span class="gt-cmc-badge">CMC</span>
           </div>
-        </div>
 
-        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
-      </div>
+          <div class="gt-chart-info-combined">
+            <!-- 上部分：折线趋势图 -->
+            <a
+              href="https://coinmarketcap.com/charts/fear-and-greed-index/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="gt-cmc-body-link"
+              style="border-bottom: 1px solid var(--border-color); padding: 0.8rem 1.5rem 1rem 1.5rem;"
+            >
+              {
+                cmcError ? (
+                  <div class="gt-placeholder">
+                    <div class="gt-ph-inner">
+                      <p class="gt-ph-title">数据不可用</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    class="gt-chart-wrap-container"
+                    id="gt-chart-container"
+                    data-cmc={JSON.stringify(cmcData)}
+                    style="border:none; margin:0; padding:0;"
+                  >
+                    <div class="gt-chart-header">
+                      <p class="gt-chart-label">过去 30 天趋势</p>
+                      <div class="gt-chart-tabs">
+                        <button class="gt-tab-btn active" data-range="30">
+                          30天
+                        </button>
+                        <button class="gt-tab-btn" data-range="365">
+                          1年
+                        </button>
+                        <button class="gt-tab-btn" data-range="1095">
+                          3年
+                        </button>
+                        <button class="gt-tab-btn" data-range="1825">
+                          5年
+                        </button>
+                      </div>
+                    </div>
+                    <div class="gt-chart-wrap">
+                      <svg
+                        viewBox={`0 0 ${CW} ${CH}`}
+                        class="gt-line-chart"
+                        preserveAspectRatio="none"
+                      >
+                        <defs>
+                          <linearGradient
+                            id="areaGrad"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="0%"
+                              stop-color="#f59e0b"
+                              stop-opacity="0.3"
+                            />
+                            <stop
+                              offset="100%"
+                              stop-color="#f59e0b"
+                              stop-opacity="0"
+                            />
+                          </linearGradient>
+                        </defs>
+                        {zones
+                          .slice()
+                          .reverse()
+                          .map((z) => {
+                            const y1 =
+                              CPT + ((100 - z.to) / 100) * (CH - CPT * 2);
+                            const y2 =
+                              CPT + ((100 - z.from) / 100) * (CH - CPT * 2);
+                            return (
+                              <rect
+                                x="0"
+                                y={y1.toFixed(1)}
+                                width={CW}
+                                height={(y2 - y1).toFixed(1)}
+                                fill={z.color}
+                                opacity="0.05"
+                              />
+                            );
+                          })}
+                        {[20, 40, 60, 80].map((v) => {
+                          const gy = CPT + ((100 - v) / 100) * (CH - CPT * 2);
+                          return (
+                            <line
+                              x1="0"
+                              y1={gy.toFixed(1)}
+                              x2={CW}
+                              y2={gy.toFixed(1)}
+                              stroke="var(--chart-grid-line)"
+                              stroke-width="1"
+                              stroke-dasharray="3 4"
+                            />
+                          );
+                        })}
+                        {area && (
+                          <polygon points={area} fill="url(#areaGrad)" />
+                        )}
+                        {polyline && (
+                          <polyline
+                            points={polyline}
+                            fill="none"
+                            stroke="#f59e0b"
+                            stroke-width="1.8"
+                            stroke-linejoin="round"
+                            stroke-linecap="round"
+                          />
+                        )}
+                        {chartPts.length > 0 && (
+                          <circle
+                            cx={chartPts[chartPts.length - 1].x}
+                            cy={chartPts[chartPts.length - 1].y}
+                            r="3.5"
+                            fill={needleColor}
+                            stroke="#06060f"
+                            stroke-width="1.5"
+                          />
+                        )}
+                      </svg>
+                      <div class="gt-y-axis">
+                        <>
+                          <span>100</span>
+                          <span>80</span>
+                          <span>60</span>
+                          <span>40</span>
+                          <span>20</span>
+                          <span>0</span>
+                        </>
+                      </div>
+                      {chartRaw.length > 0 && (
+                        <div class="gt-x-axis">
+                          <span>{fmtDate(chartRaw[0].timestamp)}</span>
+                          <span>
+                            {fmtDate(
+                              chartRaw[Math.floor(chartRaw.length / 2)]
+                                .timestamp,
+                            )}
+                          </span>
+                          <span>
+                            {fmtDate(chartRaw[chartRaw.length - 1].timestamp)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
 
-      <!-- Block 4: 快捷导航与操作 -->
-      <div class="gt-block gt-nav-block" data-id="nav">
-        <div class="gt-panel-head">
-          <div class="gt-drag-handle" title="按住拖拽调整位置">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <circle cx="9" cy="5" r="2"/>
-              <circle cx="9" cy="12" r="2"/>
-              <circle cx="9" cy="19" r="2"/>
-              <circle cx="15" cy="5" r="2"/>
-              <circle cx="15" cy="12" r="2"/>
-              <circle cx="15" cy="19" r="2"/>
-            </svg>
+                    <div class="gt-legend">
+                      {zones.map((z) => (
+                        <div class="gt-legend-item">
+                          <span
+                            class="gt-legend-dot"
+                            style={`background:${z.color}`}
+                          />
+                          <span class="gt-legend-label">{z.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              }
+            </a>
+
+            <!-- 下部分：情绪区间说明 -->
+            <div class="gt-info">
+              {
+                [
+                  {
+                    icon: "😱",
+                    label: "极度恐惧",
+                    range: "0–20",
+                    desc: "买入机会",
+                    color: "#ea3943",
+                  },
+                  {
+                    icon: "😨",
+                    label: "恐惧",
+                    range: "21–40",
+                    desc: "情绪谨慎",
+                    color: "#f97316",
+                  },
+                  {
+                    icon: "😐",
+                    label: "中性",
+                    range: "41–60",
+                    desc: "情绪平稳",
+                    color: "#eab308",
+                  },
+                  {
+                    icon: "😊",
+                    label: "贪婪",
+                    range: "61–80",
+                    desc: "注意风险",
+                    color: "#84cc16",
+                  },
+                  {
+                    icon: "🤑",
+                    label: "极度贪婪",
+                    range: "81–100",
+                    desc: "卖出信号",
+                    color: "#16c784",
+                  },
+                ].map((c) => (
+                  <div class="gt-icard" style={`--c:${c.color}`}>
+                    <div class="gt-icard-icon">{c.icon}</div>
+                    <div class="gt-icard-label" style={`color:${c.color}`}>
+                      {c.label}
+                    </div>
+                    <div class="gt-icard-range">{c.range}</div>
+                    <div class="gt-icard-desc">{c.desc}</div>
+                  </div>
+                ))
+              }
+            </div>
           </div>
-          <h2 class="gt-panel-title" style="color: var(--text-secondary);">快捷导航与操作</h2>
-        </div>
-        <div class="gt-nav">
-          <a href="/" class="gt-btn gt-btn-sec">← 返回主页</a>
-          <a href="https://coinmarketcap.com/charts/fear-and-greed-index/" target="_blank" rel="noopener noreferrer" class="gt-btn gt-btn-cmc">CMC 完整报告 ↗</a>
-          <a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" rel="noopener noreferrer" class="gt-btn gt-btn-alt">Alternative.me ↗</a>
-          <button id="gt-reset-layout" class="gt-btn gt-btn-reset">重置布局 ↺</button>
-        </div>
-        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
-      </div>
 
-    </div><!-- /gt-board -->
+          <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+        </div>
 
-  </div><!-- /gt-container -->
-</div><!-- /gt-wrapper -->
+        <!-- ==================== BLOCK 4: CRYPTO INDEX (1 cell) ==================== -->
+        <div class="gt-block gt-widget-index" data-id="crypto-index">
+          <div class="gt-panel-head">
+            <div class="gt-drag-handle" title="按住拖拽调整位置">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="currentColor"
+              >
+                <circle cx="9" cy="5" r="2"></circle><circle
+                  cx="9"
+                  cy="12"
+                  r="2"></circle><circle cx="9" cy="19" r="2"></circle>
+                <circle cx="15" cy="5" r="2"></circle><circle
+                  cx="15"
+                  cy="12"
+                  r="2"></circle><circle cx="15" cy="19" r="2"></circle>
+              </svg>
+            </div>
+            <h2 class="gt-panel-title text-crypto">加密情绪指数</h2>
+            <span class="gt-source">Crypto FGI</span>
+          </div>
+
+          <div class="gt-widget-body">
+            {
+              cryptoMetrics ? (
+                <div class="gt-gauge-box">
+                  <svg viewBox="0 0 200 105" class="gt-gauge">
+                    {nzones.map((z) => (
+                      <path
+                        d={gaugeArc(NGCX, NGCY, NGR, z.from, z.to)}
+                        stroke={z.color}
+                        stroke-width="12"
+                        fill="none"
+                        opacity="0.85"
+                      />
+                    ))}
+                    <line
+                      x1={NGCX}
+                      y1={NGCY}
+                      x2={polar(
+                        NGCX,
+                        NGCY,
+                        NGR - 8,
+                        180 - cryptoMetrics.latest.value * 1.8,
+                      ).x.toFixed(2)}
+                      y2={polar(
+                        NGCX,
+                        NGCY,
+                        NGR - 8,
+                        180 - cryptoMetrics.latest.value * 1.8,
+                      ).y.toFixed(2)}
+                      stroke={valueColor(cryptoMetrics.latest.value)}
+                      stroke-width="3"
+                      stroke-linecap="round"
+                    />
+                    <circle
+                      cx={NGCX}
+                      cy={NGCY}
+                      r="5"
+                      fill={valueColor(cryptoMetrics.latest.value)}
+                    />
+                    <circle
+                      cx={NGCX}
+                      cy={NGCY}
+                      r="2.5"
+                      fill="var(--block-bg)"
+                    />
+                    <text
+                      x={NGCX}
+                      y={NGCY - 14}
+                      text-anchor="middle"
+                      font-size="25"
+                      font-weight="800"
+                      fill={valueColor(cryptoMetrics.latest.value)}
+                    >
+                      {Math.round(cryptoMetrics.latest.value)}
+                    </text>
+                    <text
+                      x={NGCX}
+                      y={NGCY - 1}
+                      text-anchor="middle"
+                      font-size="8.5"
+                      font-weight="700"
+                      fill="var(--text-primary)"
+                    >
+                      {numberFgiZhClass(cryptoMetrics.latest.value)}
+                    </text>
+                  </svg>
+
+                  <div class="gt-sub-metrics">
+                    <div class="gt-sub-metric-row">
+                      <span>昨日:</span>
+                      <span
+                        style={`color:${valueColor(cryptoMetrics.yesterday?.value)}`}
+                      >
+                        {cryptoMetrics.yesterday
+                          ? `${cryptoMetrics.yesterday.value} (${numberFgiZhClass(cryptoMetrics.yesterday.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上周:</span>
+                      <span
+                        style={`color:${valueColor(cryptoMetrics.lastWeek?.value)}`}
+                      >
+                        {cryptoMetrics.lastWeek
+                          ? `${cryptoMetrics.lastWeek.value} (${numberFgiZhClass(cryptoMetrics.lastWeek.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上月:</span>
+                      <span
+                        style={`color:${valueColor(cryptoMetrics.lastMonth?.value)}`}
+                      >
+                        {cryptoMetrics.lastMonth
+                          ? `${cryptoMetrics.lastMonth.value} (${numberFgiZhClass(cryptoMetrics.lastMonth.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上季度:</span>
+                      <span
+                        style={`color:${valueColor(cryptoMetrics.lastQuarter?.value)}`}
+                      >
+                        {cryptoMetrics.lastQuarter
+                          ? `${cryptoMetrics.lastQuarter.value} (${numberFgiZhClass(cryptoMetrics.lastQuarter.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上半年:</span>
+                      <span
+                        style={`color:${valueColor(cryptoMetrics.lastHalfYear?.value)}`}
+                      >
+                        {cryptoMetrics.lastHalfYear
+                          ? `${cryptoMetrics.lastHalfYear.value} (${numberFgiZhClass(cryptoMetrics.lastHalfYear.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上年:</span>
+                      <span
+                        style={`color:${valueColor(cryptoMetrics.lastYear?.value)}`}
+                      >
+                        {cryptoMetrics.lastYear
+                          ? `${cryptoMetrics.lastYear.value} (${numberFgiZhClass(cryptoMetrics.lastYear.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="gt-year-highlow">
+                    <div>
+                      🏆 年高:{" "}
+                      <span
+                        style={`color:${valueColor(cryptoMetrics.yearHigh?.value)}`}
+                      >
+                        {cryptoMetrics.yearHigh?.value || "—"}
+                      </span>
+                    </div>
+                    <div>
+                      📉 年低:{" "}
+                      <span
+                        style={`color:${valueColor(cryptoMetrics.yearLow?.value)}`}
+                      >
+                        {cryptoMetrics.yearLow?.value || "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p class="gt-ph-desc">暂无数据</p>
+              )
+            }
+          </div>
+          <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+        </div>
+
+        <!-- ==================== BLOCK 5: CRYPTO TREND (3 cells) ==================== -->
+        <div class="gt-block gt-widget-trend" data-id="crypto-trend">
+          <div class="gt-panel-head">
+            <div class="gt-drag-handle" title="按住拖拽调整位置">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="currentColor"
+              >
+                <circle cx="9" cy="5" r="2"></circle><circle
+                  cx="9"
+                  cy="12"
+                  r="2"></circle><circle cx="9" cy="19" r="2"></circle>
+                <circle cx="15" cy="5" r="2"></circle><circle
+                  cx="15"
+                  cy="12"
+                  r="2"></circle><circle cx="15" cy="19" r="2"></circle>
+              </svg>
+            </div>
+            <h2 class="gt-panel-title text-crypto">加密情绪历史走势</h2>
+            <div class="gt-chart-tabs" data-target="crypto">
+              <button class="gt-tab-btn" data-range="7">7天</button>
+              <button class="gt-tab-btn active" data-range="30">30天</button>
+              <button class="gt-tab-btn" data-range="180">半年</button>
+              <button class="gt-tab-btn" data-range="365">1年</button>
+              <button class="gt-tab-btn" data-range="all">全部</button>
+            </div>
+          </div>
+
+          <div class="gt-widget-body chart-body">
+            <div class="chart-container-el">
+              <canvas
+                id="crypto-chart"
+                data-history={JSON.stringify(
+                  fgiData?.crypto.historicalData || [],
+                )}
+                data-label="Crypto Fear & Greed"
+                data-color="#3b82f6"
+                data-bg="rgba(59, 130, 246, 0.1)"></canvas>
+            </div>
+          </div>
+          <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+        </div>
+
+        <!-- ==================== BLOCK 6: GOLD INDEX (1 cell) ==================== -->
+        <div class="gt-block gt-widget-index" data-id="gold-index">
+          <div class="gt-panel-head">
+            <div class="gt-drag-handle" title="按住拖拽调整位置">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="currentColor"
+              >
+                <circle cx="9" cy="5" r="2"></circle><circle
+                  cx="9"
+                  cy="12"
+                  r="2"></circle><circle cx="9" cy="19" r="2"></circle>
+                <circle cx="15" cy="5" r="2"></circle><circle
+                  cx="15"
+                  cy="12"
+                  r="2"></circle><circle cx="15" cy="19" r="2"></circle>
+              </svg>
+            </div>
+            <h2 class="gt-panel-title text-gold">黄金情绪指数</h2>
+            <span class="gt-source">Gold FGI</span>
+          </div>
+
+          <div class="gt-widget-body">
+            {
+              goldMetrics ? (
+                <div class="gt-gauge-box">
+                  <svg viewBox="0 0 200 105" class="gt-gauge">
+                    {nzones.map((z) => (
+                      <path
+                        d={gaugeArc(NGCX, NGCY, NGR, z.from, z.to)}
+                        stroke={z.color}
+                        stroke-width="12"
+                        fill="none"
+                        opacity="0.85"
+                      />
+                    ))}
+                    <line
+                      x1={NGCX}
+                      y1={NGCY}
+                      x2={polar(
+                        NGCX,
+                        NGCY,
+                        NGR - 8,
+                        180 - goldMetrics.latest.value * 1.8,
+                      ).x.toFixed(2)}
+                      y2={polar(
+                        NGCX,
+                        NGCY,
+                        NGR - 8,
+                        180 - goldMetrics.latest.value * 1.8,
+                      ).y.toFixed(2)}
+                      stroke={valueColor(goldMetrics.latest.value)}
+                      stroke-width="3"
+                      stroke-linecap="round"
+                    />
+                    <circle
+                      cx={NGCX}
+                      cy={NGCY}
+                      r="5"
+                      fill={valueColor(goldMetrics.latest.value)}
+                    />
+                    <circle
+                      cx={NGCX}
+                      cy={NGCY}
+                      r="2.5"
+                      fill="var(--block-bg)"
+                    />
+                    <text
+                      x={NGCX}
+                      y={NGCY - 14}
+                      text-anchor="middle"
+                      font-size="25"
+                      font-weight="800"
+                      fill={valueColor(goldMetrics.latest.value)}
+                    >
+                      {Math.round(goldMetrics.latest.value)}
+                    </text>
+                    <text
+                      x={NGCX}
+                      y={NGCY - 1}
+                      text-anchor="middle"
+                      font-size="8.5"
+                      font-weight="700"
+                      fill="var(--text-primary)"
+                    >
+                      {numberFgiZhClass(goldMetrics.latest.value)}
+                    </text>
+                  </svg>
+
+                  <div class="gt-sub-metrics">
+                    <div class="gt-sub-metric-row">
+                      <span>昨日:</span>
+                      <span
+                        style={`color:${valueColor(goldMetrics.yesterday?.value)}`}
+                      >
+                        {goldMetrics.yesterday
+                          ? `${goldMetrics.yesterday.value} (${numberFgiZhClass(goldMetrics.yesterday.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上周:</span>
+                      <span
+                        style={`color:${valueColor(goldMetrics.lastWeek?.value)}`}
+                      >
+                        {goldMetrics.lastWeek
+                          ? `${goldMetrics.lastWeek.value} (${numberFgiZhClass(goldMetrics.lastWeek.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上月:</span>
+                      <span
+                        style={`color:${valueColor(goldMetrics.lastMonth?.value)}`}
+                      >
+                        {goldMetrics.lastMonth
+                          ? `${goldMetrics.lastMonth.value} (${numberFgiZhClass(goldMetrics.lastMonth.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上季度:</span>
+                      <span
+                        style={`color:${valueColor(goldMetrics.lastQuarter?.value)}`}
+                      >
+                        {goldMetrics.lastQuarter
+                          ? `${goldMetrics.lastQuarter.value} (${numberFgiZhClass(goldMetrics.lastQuarter.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上半年:</span>
+                      <span
+                        style={`color:${valueColor(goldMetrics.lastHalfYear?.value)}`}
+                      >
+                        {goldMetrics.lastHalfYear
+                          ? `${goldMetrics.lastHalfYear.value} (${numberFgiZhClass(goldMetrics.lastHalfYear.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上年:</span>
+                      <span
+                        style={`color:${valueColor(goldMetrics.lastYear?.value)}`}
+                      >
+                        {goldMetrics.lastYear
+                          ? `${goldMetrics.lastYear.value} (${numberFgiZhClass(goldMetrics.lastYear.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="gt-year-highlow">
+                    <div>
+                      🏆 年高:{" "}
+                      <span
+                        style={`color:${valueColor(goldMetrics.yearHigh?.value)}`}
+                      >
+                        {goldMetrics.yearHigh?.value || "—"}
+                      </span>
+                    </div>
+                    <div>
+                      📉 年低:{" "}
+                      <span
+                        style={`color:${valueColor(goldMetrics.yearLow?.value)}`}
+                      >
+                        {goldMetrics.yearLow?.value || "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p class="gt-ph-desc">暂无数据</p>
+              )
+            }
+          </div>
+          <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+        </div>
+
+        <!-- ==================== BLOCK 7: GOLD TREND (3 cells) ==================== -->
+        <div class="gt-block gt-widget-trend" data-id="gold-trend">
+          <div class="gt-panel-head">
+            <div class="gt-drag-handle" title="按住拖拽调整位置">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="currentColor"
+              >
+                <circle cx="9" cy="5" r="2"></circle><circle
+                  cx="9"
+                  cy="12"
+                  r="2"></circle><circle cx="9" cy="19" r="2"></circle>
+                <circle cx="15" cy="5" r="2"></circle><circle
+                  cx="15"
+                  cy="12"
+                  r="2"></circle><circle cx="15" cy="19" r="2"></circle>
+              </svg>
+            </div>
+            <h2 class="gt-panel-title text-gold">黄金情绪历史走势</h2>
+            <div class="gt-chart-tabs" data-target="gold">
+              <button class="gt-tab-btn" data-range="7">7天</button>
+              <button class="gt-tab-btn active" data-range="30">30天</button>
+              <button class="gt-tab-btn" data-range="180">半年</button>
+              <button class="gt-tab-btn" data-range="365">1年</button>
+              <button class="gt-tab-btn" data-range="all">全部</button>
+            </div>
+          </div>
+
+          <div class="gt-widget-body chart-body">
+            <div class="chart-container-el">
+              <canvas
+                id="gold-chart"
+                data-history={JSON.stringify(
+                  fgiData?.gold.historicalData || [],
+                )}
+                data-label="Gold Fear & Greed"
+                data-color="#eab308"
+                data-bg="rgba(234, 179, 8, 0.1)"></canvas>
+            </div>
+          </div>
+          <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+        </div>
+
+        <!-- ==================== BLOCK 8: STOCK INDEX (1 cell) ==================== -->
+        <div class="gt-block gt-widget-index" data-id="stock-index">
+          <div class="gt-panel-head">
+            <div class="gt-drag-handle" title="按住拖拽调整位置">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="currentColor"
+              >
+                <circle cx="9" cy="5" r="2"></circle><circle
+                  cx="9"
+                  cy="12"
+                  r="2"></circle><circle cx="9" cy="19" r="2"></circle>
+                <circle cx="15" cy="5" r="2"></circle><circle
+                  cx="15"
+                  cy="12"
+                  r="2"></circle><circle cx="15" cy="19" r="2"></circle>
+              </svg>
+            </div>
+            <h2 class="gt-panel-title text-stock">股票情绪指数</h2>
+            <span class="gt-source">Stock FGI</span>
+          </div>
+
+          <div class="gt-widget-body">
+            {
+              stockMetrics ? (
+                <div class="gt-gauge-box">
+                  <svg viewBox="0 0 200 105" class="gt-gauge">
+                    {nzones.map((z) => (
+                      <path
+                        d={gaugeArc(NGCX, NGCY, NGR, z.from, z.to)}
+                        stroke={z.color}
+                        stroke-width="12"
+                        fill="none"
+                        opacity="0.85"
+                      />
+                    ))}
+                    <line
+                      x1={NGCX}
+                      y1={NGCY}
+                      x2={polar(
+                        NGCX,
+                        NGCY,
+                        NGR - 8,
+                        180 - stockMetrics.latest.value * 1.8,
+                      ).x.toFixed(2)}
+                      y2={polar(
+                        NGCX,
+                        NGCY,
+                        NGR - 8,
+                        180 - stockMetrics.latest.value * 1.8,
+                      ).y.toFixed(2)}
+                      stroke={valueColor(stockMetrics.latest.value)}
+                      stroke-width="3"
+                      stroke-linecap="round"
+                    />
+                    <circle
+                      cx={NGCX}
+                      cy={NGCY}
+                      r="5"
+                      fill={valueColor(stockMetrics.latest.value)}
+                    />
+                    <circle
+                      cx={NGCX}
+                      cy={NGCY}
+                      r="2.5"
+                      fill="var(--block-bg)"
+                    />
+                    <text
+                      x={NGCX}
+                      y={NGCY - 14}
+                      text-anchor="middle"
+                      font-size="25"
+                      font-weight="800"
+                      fill={valueColor(stockMetrics.latest.value)}
+                    >
+                      {Math.round(stockMetrics.latest.value)}
+                    </text>
+                    <text
+                      x={NGCX}
+                      y={NGCY - 1}
+                      text-anchor="middle"
+                      font-size="8.5"
+                      font-weight="700"
+                      fill="var(--text-primary)"
+                    >
+                      {numberFgiZhClass(stockMetrics.latest.value)}
+                    </text>
+                  </svg>
+
+                  <div class="gt-sub-metrics">
+                    <div class="gt-sub-metric-row">
+                      <span>昨日:</span>
+                      <span
+                        style={`color:${valueColor(stockMetrics.yesterday?.value)}`}
+                      >
+                        {stockMetrics.yesterday
+                          ? `${stockMetrics.yesterday.value} (${numberFgiZhClass(stockMetrics.yesterday.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上周:</span>
+                      <span
+                        style={`color:${valueColor(stockMetrics.lastWeek?.value)}`}
+                      >
+                        {stockMetrics.lastWeek
+                          ? `${stockMetrics.lastWeek.value} (${numberFgiZhClass(stockMetrics.lastWeek.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上月:</span>
+                      <span
+                        style={`color:${valueColor(stockMetrics.lastMonth?.value)}`}
+                      >
+                        {stockMetrics.lastMonth
+                          ? `${stockMetrics.lastMonth.value} (${numberFgiZhClass(stockMetrics.lastMonth.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上季度:</span>
+                      <span
+                        style={`color:${valueColor(stockMetrics.lastQuarter?.value)}`}
+                      >
+                        {stockMetrics.lastQuarter
+                          ? `${stockMetrics.lastQuarter.value} (${numberFgiZhClass(stockMetrics.lastQuarter.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上半年:</span>
+                      <span
+                        style={`color:${valueColor(stockMetrics.lastHalfYear?.value)}`}
+                      >
+                        {stockMetrics.lastHalfYear
+                          ? `${stockMetrics.lastHalfYear.value} (${numberFgiZhClass(stockMetrics.lastHalfYear.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div class="gt-sub-metric-row">
+                      <span>上年:</span>
+                      <span
+                        style={`color:${valueColor(stockMetrics.lastYear?.value)}`}
+                      >
+                        {stockMetrics.lastYear
+                          ? `${stockMetrics.lastYear.value} (${numberFgiZhClass(stockMetrics.lastYear.value)})`
+                          : "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="gt-year-highlow">
+                    <div>
+                      🏆 年高:{" "}
+                      <span
+                        style={`color:${valueColor(stockMetrics.yearHigh?.value)}`}
+                      >
+                        {stockMetrics.yearHigh?.value || "—"}
+                      </span>
+                    </div>
+                    <div>
+                      📉 年低:{" "}
+                      <span
+                        style={`color:${valueColor(stockMetrics.yearLow?.value)}`}
+                      >
+                        {stockMetrics.yearLow?.value || "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p class="gt-ph-desc">暂无数据</p>
+              )
+            }
+          </div>
+          <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+        </div>
+
+        <!-- ==================== BLOCK 9: STOCK TREND (3 cells) ==================== -->
+        <div class="gt-block gt-widget-trend" data-id="stock-trend">
+          <div class="gt-panel-head">
+            <div class="gt-drag-handle" title="按住拖拽调整位置">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="currentColor"
+              >
+                <circle cx="9" cy="5" r="2"></circle><circle
+                  cx="9"
+                  cy="12"
+                  r="2"></circle><circle cx="9" cy="19" r="2"></circle>
+                <circle cx="15" cy="5" r="2"></circle><circle
+                  cx="15"
+                  cy="12"
+                  r="2"></circle><circle cx="15" cy="19" r="2"></circle>
+              </svg>
+            </div>
+            <h2 class="gt-panel-title text-stock">股票情绪历史走势</h2>
+            <div class="gt-chart-tabs" data-target="stock">
+              <button class="gt-tab-btn" data-range="7">7天</button>
+              <button class="gt-tab-btn active" data-range="30">30天</button>
+              <button class="gt-tab-btn" data-range="180">半年</button>
+              <button class="gt-tab-btn" data-range="365">1年</button>
+              <button class="gt-tab-btn" data-range="all">全部</button>
+            </div>
+          </div>
+
+          <div class="gt-widget-body chart-body">
+            <div class="chart-container-el">
+              <canvas
+                id="stock-chart"
+                data-history={JSON.stringify(
+                  fgiData?.stock.historicalData || [],
+                )}
+                data-label="Stock Fear & Greed"
+                data-color="#16c784"
+                data-bg="rgba(22, 199, 132, 0.1)"></canvas>
+            </div>
+          </div>
+          <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+        </div>
+
+        <!-- ==================== BLOCK 10: 快捷导航与操作 ==================== -->
+        <div class="gt-block gt-nav-block" data-id="nav">
+          <div class="gt-panel-head">
+            <div class="gt-drag-handle" title="按住拖拽调整位置">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="currentColor"
+              >
+                <circle cx="9" cy="5" r="2"></circle><circle
+                  cx="9"
+                  cy="12"
+                  r="2"></circle><circle cx="9" cy="19" r="2"></circle>
+                <circle cx="15" cy="5" r="2"></circle><circle
+                  cx="15"
+                  cy="12"
+                  r="2"></circle><circle cx="15" cy="19" r="2"></circle>
+              </svg>
+            </div>
+            <h2 class="gt-panel-title" style="color: var(--text-secondary);">
+              快捷导航与操作
+            </h2>
+          </div>
+          <div class="gt-nav">
+            <a href="/" class="gt-btn gt-btn-sec">← 返回主页</a>
+            <a
+              href="https://coinmarketcap.com/charts/fear-and-greed-index/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="gt-btn gt-btn-cmc">CMC 完整报告 ↗</a
+            >
+            <a
+              href="https://alternative.me/crypto/fear-and-greed-index/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="gt-btn gt-btn-alt">Alternative.me ↗</a
+            >
+            <a
+              href="https://www.feargreedindex.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="gt-btn gt-btn-fgi">FGI Dashboard ↗</a
+            >
+            <button id="gt-reset-layout" class="gt-btn gt-btn-reset"
+              >重置布局 ↺</button
+            >
+          </div>
+          <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+        </div>
+      </div><!-- /gt-board -->
+    </div><!-- /gt-container -->
+  </div><!-- /gt-wrapper -->
 </Layout>
 
+<!-- Inject Chart.js preloads in Browser -->
+<script
+  is:inline
+  src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script
+  is:inline
+  src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
+></script>
+<script
+  is:inline
+  src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"
+></script>
+<script
+  is:inline
+  src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"
+></script>
+
 <script>
-  // Immediately read and set theme to avoid FOUC (flash of unstyled content)
+  // Immediately read and set theme to avoid FOUC
   const savedTheme = (() => {
     try {
-      return localStorage.getItem('gt-theme') || 'dark';
+      return localStorage.getItem("gt-theme-v2") || "paper";
     } catch (e) {
-      return 'dark';
+      return "paper";
     }
   })();
-  document.documentElement.setAttribute('data-theme', savedTheme);
+  document.documentElement.setAttribute("data-theme", savedTheme);
 
-  document.addEventListener('DOMContentLoaded', () => {
-    // CMC Trend Chart Time Range Switcher
-    const chartContainer = document.getElementById('gt-chart-container');
+  document.addEventListener("DOMContentLoaded", () => {
+    // Register plugins
+    if (
+      window.Chart &&
+      window.chartjsPluginAnnotation &&
+      window.chartjsPluginZoom
+    ) {
+      window.Chart.register(window.chartjsPluginAnnotation);
+      window.Chart.register(window.chartjsPluginZoom);
+    }
+
+    // CMC Trend Chart Time Range Switcher (Original Restored)
+    const chartContainer = document.getElementById("gt-chart-container");
     if (chartContainer) {
-      const cmcDataStr = chartContainer.getAttribute('data-cmc');
+      const cmcDataStr = chartContainer.getAttribute("data-cmc");
       if (cmcDataStr) {
         try {
           const cmcData = JSON.parse(cmcDataStr);
-          const tabs = chartContainer.querySelectorAll('.gt-tab-btn');
-          const chartLabel = chartContainer.querySelector('.gt-chart-label');
-          const polylineEl = chartContainer.querySelector('.gt-line-chart polyline');
-          const areaEl = chartContainer.querySelector('.gt-line-chart polygon');
-          const markerEl = chartContainer.querySelector('.gt-line-chart circle');
-          const xAxisEl = chartContainer.querySelector('.gt-x-axis');
+          const tabs = chartContainer.querySelectorAll(".gt-tab-btn");
+          const chartLabel = chartContainer.querySelector(".gt-chart-label");
+          const polylineEl = chartContainer.querySelector(
+            ".gt-line-chart polyline",
+          );
+          const areaEl = chartContainer.querySelector(".gt-line-chart polygon");
+          const markerEl = chartContainer.querySelector(
+            ".gt-line-chart circle",
+          );
+          const xAxisEl = chartContainer.querySelector(".gt-x-axis");
 
           const CW = 560;
           const CH = 100;
@@ -497,141 +1575,364 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
 
           const clientFmtDate = (ts: any) => {
             const ms = Number(ts) < 1e12 ? Number(ts) * 1000 : Number(ts);
-            return new Date(ms).toLocaleDateString('zh-CN', {
-              year: 'numeric', month: 'short', day: 'numeric',
+            return new Date(ms).toLocaleDateString("zh-CN", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
             });
           };
 
           const clientValueColor = (v: number) => {
-            if (v <= 20) return '#ea3943';
-            if (v <= 40) return '#f97316';
-            if (v <= 60) return '#eab308';
-            if (v <= 80) return '#84cc16';
-            return '#16c784';
+            if (v <= 20) return "#ea3943";
+            if (v <= 40) return "#f97316";
+            if (v <= 60) return "#eab308";
+            if (v <= 80) return "#84cc16";
+            return "#16c784";
           };
 
           const updateChart = (days: number) => {
             if (!cmcData || !cmcData.length) return;
             const chartRaw = cmcData.slice(0, days).reverse();
             const chartPts = chartRaw.map((d: any, i: number) => {
-              const x = chartRaw.length > 1 ? (i / (chartRaw.length - 1)) * CW : CW / 2;
+              const x =
+                chartRaw.length > 1 ? (i / (chartRaw.length - 1)) * CW : CW / 2;
               const y = CPT + ((100 - d.value) / 100) * (CH - CPT * 2);
               return { x: +x.toFixed(2), y: +y.toFixed(2), v: d.value };
             });
 
-            const polylinePoints = chartPts.map((p: any) => `${p.x},${p.y}`).join(' ');
-            const areaPoints = chartPts.length ? `0,${CH} ${polylinePoints} ${CW},${CH}` : '';
+            const polylinePoints = chartPts
+              .map((p: any) => `${p.x},${p.y}`)
+              .join(" ");
+            const areaPoints = chartPts.length
+              ? `0,${CH} ${polylinePoints} ${CW},${CH}`
+              : "";
 
             if (polylineEl) {
-              polylineEl.setAttribute('points', polylinePoints);
+              polylineEl.setAttribute("points", polylinePoints);
             }
             if (areaEl) {
-              areaEl.setAttribute('points', areaPoints);
+              areaEl.setAttribute("points", areaPoints);
             }
             if (markerEl && chartPts.length > 0) {
               const lastPt = chartPts[chartPts.length - 1];
-              markerEl.setAttribute('cx', String(lastPt.x));
-              markerEl.setAttribute('cy', String(lastPt.y));
-              markerEl.setAttribute('fill', clientValueColor(lastPt.v));
+              markerEl.setAttribute("cx", String(lastPt.x));
+              markerEl.setAttribute("cy", String(lastPt.y));
+              markerEl.setAttribute("fill", clientValueColor(lastPt.v));
             }
 
             if (xAxisEl && chartRaw.length > 0) {
               const first = clientFmtDate(chartRaw[0].timestamp);
-              const mid = clientFmtDate(chartRaw[Math.floor(chartRaw.length / 2)].timestamp);
-              const last = clientFmtDate(chartRaw[chartRaw.length - 1].timestamp);
+              const mid = clientFmtDate(
+                chartRaw[Math.floor(chartRaw.length / 2)].timestamp,
+              );
+              const last = clientFmtDate(
+                chartRaw[chartRaw.length - 1].timestamp,
+              );
               xAxisEl.innerHTML = `<span>${first}</span><span>${mid}</span><span>${last}</span>`;
             }
 
             if (chartLabel) {
               let labelText = `过去 ${days} 天趋势`;
-              if (days === 30) labelText = '过去 30 天趋势';
-              else if (days === 365) labelText = '过去 1 年趋势';
-              else if (days === 1095) labelText = '过去 3 年趋势 (实际数据1076天)';
-              else if (days === 1825) labelText = '过去 5 年趋势 (自2023年8月上线起)';
+              if (days === 30) labelText = "过去 30 天趋势";
+              else if (days === 365) labelText = "过去 1 年趋势";
+              else if (days === 1095)
+                labelText = "过去 3 年趋势 (实际数据1076天)";
+              else if (days === 1825)
+                labelText = "过去 5 年趋势 (自2023年8月上线起)";
               chartLabel.textContent = labelText;
             }
           };
 
-          tabs.forEach(tab => {
-            tab.addEventListener('click', (e) => {
+          tabs.forEach((tab) => {
+            tab.addEventListener("click", (e) => {
               e.preventDefault();
-              tabs.forEach(t => t.classList.remove('active'));
-              tab.classList.add('active');
-              const range = parseInt(tab.getAttribute('data-range') || '30', 10);
+              tabs.forEach((t) => t.classList.remove("active"));
+              tab.classList.add("active");
+              const range = parseInt(
+                tab.getAttribute("data-range") || "30",
+                10,
+              );
               updateChart(range);
             });
           });
         } catch (err) {
-          console.error('Failed to parse CMC data:', err);
+          console.error("Failed to parse CMC data:", err);
         }
       }
     }
 
-    // Theme Toggler functionality
-    const themeBtns = document.querySelectorAll('[data-theme-val]');
-    
+    // --- Chart.js components initialization for Stock, Crypto, Gold ---
+    const chartInstances: Record<string, any> = {};
+
+    function getChartThemeColors() {
+      const isLight =
+        document.documentElement.getAttribute("data-theme") === "light";
+      const isPaper =
+        document.documentElement.getAttribute("data-theme") === "paper";
+      return {
+        gridColor: isLight
+          ? "rgba(0, 0, 0, 0.05)"
+          : isPaper
+            ? "rgba(74, 53, 37, 0.07)"
+            : "rgba(255, 255, 255, 0.06)",
+        textColor: isLight ? "#475569" : isPaper ? "#6b4a32" : "#94a3b8",
+      };
+    }
+
+    function initChart(canvasId: string) {
+      const canvas = document.getElementById(
+        canvasId,
+      ) as HTMLCanvasElement | null;
+      if (!canvas) return;
+
+      const historyDataStr = canvas.getAttribute("data-history");
+      if (!historyDataStr) return;
+
+      const fullHistory = JSON.parse(historyDataStr);
+      const label = canvas.getAttribute("data-label") || "Index";
+      const color = canvas.getAttribute("data-color") || "#ffd700";
+      const bgColor =
+        canvas.getAttribute("data-bg") || "rgba(255, 215, 0, 0.05)";
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      function getFilteredDataset(days: string | number) {
+        if (days === "all" || !days) return [...fullHistory];
+        const count = Number(days);
+        return fullHistory.slice(-count);
+      }
+
+      const currentColors = getChartThemeColors();
+
+      const render = (days: string | number) => {
+        const data = getFilteredDataset(days);
+        const labels = data.map((item: any) =>
+          new Date(item.timestamp).toLocaleDateString("zh-CN", {
+            month: "short",
+            day: "numeric",
+          }),
+        );
+        const values = data.map((item: any) => item.value);
+
+        if (chartInstances[canvasId]) {
+          chartInstances[canvasId].destroy();
+        }
+
+        chartInstances[canvasId] = new window.Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: label,
+                data: values,
+                borderColor: color,
+                backgroundColor: bgColor,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                hitRadius: 20,
+                fill: true,
+                tension: 0.15,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            scales: {
+              y: {
+                min: 0,
+                max: 100,
+                ticks: {
+                  stepSize: 20,
+                  color: currentColors.textColor,
+                  font: { size: 9 },
+                },
+                grid: {
+                  color: currentColors.gridColor,
+                },
+              },
+              x: {
+                grid: { display: false },
+                ticks: {
+                  maxRotation: 0,
+                  autoSkip: true,
+                  maxTicksLimit: 6,
+                  color: currentColors.textColor,
+                  font: { size: 9 },
+                },
+              },
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: "rgba(10, 10, 20, 0.95)",
+                titleColor: "#fff",
+                bodyColor: "#fff",
+                borderColor: "rgba(255,255,255,0.1)",
+                borderWidth: 1,
+                callbacks: {
+                  label: function (context: any) {
+                    const value = context.parsed.y;
+                    let sentiment = "中性";
+                    if (value <= 25) sentiment = "极度恐惧";
+                    else if (value <= 45) sentiment = "恐惧";
+                    else if (value <= 55) sentiment = "中性";
+                    else if (value <= 75) sentiment = "贪婪";
+                    else sentiment = "极度贪婪";
+                    return ` ${label}: ${Math.round(value)} (${sentiment})`;
+                  },
+                },
+              },
+              annotation: {
+                annotations: {
+                  neutralLine: {
+                    type: "line",
+                    yMin: 50,
+                    yMax: 50,
+                    borderColor: "rgba(150, 150, 150, 0.3)",
+                    borderWidth: 1,
+                    borderDash: [5, 5],
+                  },
+                  fearLine: {
+                    type: "line",
+                    yMin: 25,
+                    yMax: 25,
+                    borderColor: "rgba(220, 53, 69, 0.2)",
+                    borderWidth: 1,
+                    borderDash: [4, 4],
+                  },
+                  greedLine: {
+                    type: "line",
+                    yMin: 75,
+                    yMax: 75,
+                    borderColor: "rgba(40, 167, 69, 0.2)",
+                    borderWidth: 1,
+                    borderDash: [4, 4],
+                  },
+                },
+              },
+            },
+          },
+        });
+      };
+
+      render(30);
+      (canvas as any)._updateChartRange = render;
+    }
+
+    initChart("crypto-chart");
+    initChart("gold-chart");
+    initChart("stock-chart");
+
+    const tabContainers = document.querySelectorAll(
+      ".gt-chart-tabs[data-target]",
+    );
+    tabContainers.forEach((container) => {
+      const target = container.getAttribute("data-target");
+      const canvas = document.getElementById(`${target}-chart`) as any;
+      if (!canvas) return;
+
+      const buttons = container.querySelectorAll(".gt-tab-btn");
+      buttons.forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          buttons.forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const range = btn.getAttribute("data-range") || "30";
+          if (canvas._updateChartRange) {
+            canvas._updateChartRange(range);
+          }
+        });
+      });
+    });
+
+    // Theme Toggler functionality (Restored + Augmented)
+    const themeBtns = document.querySelectorAll("[data-theme-val]");
+
     function setTheme(theme: string) {
-      document.documentElement.setAttribute('data-theme', theme);
-      themeBtns.forEach(btn => {
-        if (btn.getAttribute('data-theme-val') === theme) {
-          btn.classList.add('gt-active');
+      document.documentElement.setAttribute("data-theme", theme);
+      themeBtns.forEach((btn) => {
+        if (btn.getAttribute("data-theme-val") === theme) {
+          btn.classList.add("gt-active");
         } else {
-          btn.classList.remove('gt-active');
+          btn.classList.remove("gt-active");
         }
       });
       try {
-        localStorage.setItem('gt-theme', theme);
+        localStorage.setItem("gt-theme-v2", theme);
       } catch (err) {}
+
+      // Update Chart.js themes
+      const colors = getChartThemeColors();
+      Object.values(chartInstances).forEach((chart: any) => {
+        if (chart?.options?.scales) {
+          chart.options.scales.y.grid.color = colors.gridColor;
+          chart.options.scales.y.ticks.color = colors.textColor;
+          chart.options.scales.x.ticks.color = colors.textColor;
+          chart.update();
+        }
+      });
     }
 
     setTheme(savedTheme);
 
-    themeBtns.forEach(btn => {
-      btn.addEventListener('click', (e) => {
+    themeBtns.forEach((btn) => {
+      btn.addEventListener("click", (e) => {
         e.preventDefault();
-        const val = btn.getAttribute('data-theme-val');
+        const val = btn.getAttribute("data-theme-val");
         if (val) {
           setTheme(val);
         }
       });
     });
 
-    // Grid Layout engine functionality
-    const container = document.querySelector('.gt-board') as HTMLElement | null;
+    // Grid Layout engine functionality (Restored & Augmented for 10 widgets)
+    const container = document.querySelector(".gt-board") as HTMLElement | null;
     if (!container) return;
 
-    const ROW_HEIGHT = 220; // 220px per row cell height
-
-    // Standard hardcoded layout as default
+    // Default layout containing all 10 widgets
     const defaultLayout = {
-      'altme':     { col: 1, row: 1, w: 2, h: 2 },
-      'cmc-gauge': { col: 3, row: 1, w: 4, h: 2 },
-      'cmc-chart': { col: 1, row: 3, w: 6, h: 2 },
-      'nav':       { col: 1, row: 5, w: 6, h: 1 }
+      altme: { col: 1, row: 1, w: 2, h: 2 },
+      "cmc-gauge": { col: 3, row: 1, w: 4, h: 2 },
+      "crypto-index": { col: 1, row: 3, w: 2, h: 2 },
+      "gold-index": { col: 3, row: 3, w: 2, h: 2 },
+      "stock-index": { col: 5, row: 3, w: 2, h: 2 },
+      "cmc-chart": { col: 1, row: 5, w: 6, h: 2 },
+      "crypto-trend": { col: 1, row: 7, w: 6, h: 2 },
+      "gold-trend": { col: 1, row: 9, w: 6, h: 2 },
+      "stock-trend": { col: 1, row: 11, w: 6, h: 2 },
+      nav: { col: 1, row: 13, w: 6, h: 1 },
     };
 
     let layout = {} as any;
     try {
-      const saved = localStorage.getItem('gt-layout-grid-v2');
+      const saved = localStorage.getItem("gt-layout-grid-v10");
       if (saved) {
         layout = JSON.parse(saved);
       }
     } catch (e) {
-      console.error('Failed to load grid layout:', e);
+      console.error("Failed to load grid layout:", e);
     }
 
     // Merge layout config
-    Object.keys(defaultLayout).forEach(key => {
-      if (!layout[key] || typeof layout[key].col !== 'number') {
+    Object.keys(defaultLayout).forEach((key) => {
+      if (!layout[key] || typeof layout[key].col !== "number") {
         layout[key] = { ...(defaultLayout as any)[key] };
       }
     });
 
-    const blocks = container.querySelectorAll('.gt-block');
+    const blocks = container.querySelectorAll(".gt-block");
 
     function applyLayout() {
-      blocks.forEach(block => {
-        const id = block.getAttribute('data-id');
+      blocks.forEach((block) => {
+        const id = block.getAttribute("data-id");
         if (id && layout[id]) {
           const cfg = layout[id];
           const el = block as HTMLElement;
@@ -645,21 +1946,21 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     function updateRowHeight() {
       const width = container!.getBoundingClientRect().width;
       const colWidth = width / 6; // 6 columns
-      container!.style.setProperty('--row-height', `${colWidth.toFixed(1)}px`);
+      container!.style.setProperty("--row-height", `${colWidth.toFixed(1)}px`);
     }
 
     applyLayout();
     updateRowHeight();
 
-    window.addEventListener('resize', updateRowHeight);
+    window.addEventListener("resize", updateRowHeight);
 
     // Reset layout trigger
-    const resetBtn = document.getElementById('gt-reset-layout');
+    const resetBtn = document.getElementById("gt-reset-layout");
     if (resetBtn) {
-      resetBtn.addEventListener('click', (e) => {
+      resetBtn.addEventListener("click", (e) => {
         e.preventDefault();
         try {
-          localStorage.removeItem('gt-layout-grid-v2');
+          localStorage.removeItem("gt-layout-grid-v10");
         } catch (err) {}
         layout = JSON.parse(JSON.stringify(defaultLayout));
         applyLayout();
@@ -668,12 +1969,12 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     }
 
     // Ghost layout guide placeholder
-    const ghost = document.createElement('div');
-    ghost.className = 'gt-grid-ghost';
-    ghost.style.display = 'none';
+    const ghost = document.createElement("div");
+    ghost.className = "gt-grid-ghost";
+    ghost.style.display = "none";
     container.appendChild(ghost);
 
-    let activeId = null as string | null;
+    let activeId: string | null = null;
     let isDragging = false;
     let isResizing = false;
 
@@ -688,25 +1989,28 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     let initialWidth = 0;
     let initialHeight = 0;
 
-    let blockRect = null as DOMRect | null;
-    let containerRect = null as DOMRect | null;
-    let currentBlockEl = null as HTMLElement | null;
+    let blockRect: DOMRect | null = null;
+    let containerRect: DOMRect | null = null;
+    let currentBlockEl: HTMLElement | null = null;
 
-    container.addEventListener('mousedown', (e) => {
-      // Don't intercept clicks inside links/buttons
-      if ((e.target as HTMLElement).closest('a') || (e.target as HTMLElement).closest('button')) {
+    container.addEventListener("mousedown", (e) => {
+      // Don't intercept clicks inside links/buttons/tabs
+      if (
+        (e.target as HTMLElement).closest("a") ||
+        (e.target as HTMLElement).closest("button")
+      ) {
         return;
       }
 
-      const handle = (e.target as HTMLElement).closest('.gt-drag-handle');
-      const resize = (e.target as HTMLElement).closest('.gt-resize-handle');
+      const handle = (e.target as HTMLElement).closest(".gt-drag-handle");
+      const resize = (e.target as HTMLElement).closest(".gt-resize-handle");
 
       if (handle) {
         e.preventDefault();
-        currentBlockEl = handle.closest('.gt-block') as HTMLElement;
+        currentBlockEl = handle.closest(".gt-block") as HTMLElement;
         if (!currentBlockEl) return;
 
-        activeId = currentBlockEl.getAttribute('data-id');
+        activeId = currentBlockEl.getAttribute("data-id");
         isDragging = true;
 
         containerRect = container.getBoundingClientRect();
@@ -721,18 +2025,17 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
         initialWSpan = cfg.w;
         initialHSpan = cfg.h;
 
-        currentBlockEl.classList.add('gt-dragging');
+        currentBlockEl.classList.add("gt-dragging");
 
         ghost.style.gridColumn = currentBlockEl.style.gridColumn;
         ghost.style.gridRow = currentBlockEl.style.gridRow;
-        ghost.style.display = 'block';
-      }
-      else if (resize) {
+        ghost.style.display = "block";
+      } else if (resize) {
         e.preventDefault();
-        currentBlockEl = resize.closest('.gt-block') as HTMLElement;
+        currentBlockEl = resize.closest(".gt-block") as HTMLElement;
         if (!currentBlockEl) return;
 
-        activeId = currentBlockEl.getAttribute('data-id');
+        activeId = currentBlockEl.getAttribute("data-id");
         isResizing = true;
 
         containerRect = container.getBoundingClientRect();
@@ -750,15 +2053,15 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
         initialWSpan = cfg.w;
         initialHSpan = cfg.h;
 
-        currentBlockEl.classList.add('gt-resizing');
+        currentBlockEl.classList.add("gt-resizing");
 
         ghost.style.gridColumn = currentBlockEl.style.gridColumn;
         ghost.style.gridRow = currentBlockEl.style.gridRow;
-        ghost.style.display = 'block';
+        ghost.style.display = "block";
       }
     });
 
-    document.addEventListener('mousemove', (e) => {
+    document.addEventListener("mousemove", (e) => {
       if (!activeId || !currentBlockEl) return;
 
       containerRect = container.getBoundingClientRect();
@@ -774,7 +2077,7 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
         let targetCol = Math.floor(mouseRelativeX / colWidth) + 1;
         let targetRow = Math.floor(mouseRelativeY / colWidth) + 1;
 
-        // Bounds constraints
+        // Bounds constraints (6 columns grid)
         targetCol = Math.max(1, Math.min(6 - initialWSpan + 1, targetCol));
         targetRow = Math.max(1, targetRow);
 
@@ -782,10 +2085,9 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
         ghost.style.gridRow = `${targetRow} / span ${initialHSpan}`;
 
         currentBlockEl.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-        currentBlockEl.style.zIndex = '100';
-        currentBlockEl.style.pointerEvents = 'none';
-      }
-      else if (isResizing) {
+        currentBlockEl.style.zIndex = "100";
+        currentBlockEl.style.pointerEvents = "none";
+      } else if (isResizing) {
         const deltaX = e.clientX - initialMouseX;
         const deltaY = e.clientY - initialMouseY;
 
@@ -795,7 +2097,7 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
         let targetWSpan = Math.round(newWidth / colWidth);
         targetWSpan = Math.max(1, Math.min(6 - initialCol + 1, targetWSpan));
 
-        let targetHSpan = Math.round(newHeight / colWidth); // square cells
+        let targetHSpan = Math.round(newHeight / colWidth);
         targetHSpan = Math.max(1, targetHSpan);
 
         ghost.style.gridColumn = `${initialCol} / span ${targetWSpan}`;
@@ -803,17 +2105,17 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
       }
     });
 
-    document.addEventListener('mouseup', () => {
+    document.addEventListener("mouseup", () => {
       if (!activeId || !currentBlockEl) return;
 
       if (isDragging) {
-        currentBlockEl.classList.remove('gt-dragging');
-        currentBlockEl.style.transform = '';
-        currentBlockEl.style.zIndex = '';
-        currentBlockEl.style.pointerEvents = '';
+        currentBlockEl.classList.remove("gt-dragging");
+        currentBlockEl.style.transform = "";
+        currentBlockEl.style.zIndex = "";
+        currentBlockEl.style.pointerEvents = "";
 
-        const colParts = ghost.style.gridColumn.split('/');
-        const rowParts = ghost.style.gridRow.split('/');
+        const colParts = ghost.style.gridColumn.split("/");
+        const rowParts = ghost.style.gridRow.split("/");
 
         if (colParts.length && rowParts.length) {
           const finalCol = parseInt(colParts[0]);
@@ -824,12 +2126,11 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
             layout[activeId!].row = finalRow;
           }
         }
-      }
-      else if (isResizing) {
-        currentBlockEl.classList.remove('gt-resizing');
+      } else if (isResizing) {
+        currentBlockEl.classList.remove("gt-resizing");
 
-        const colParts = ghost.style.gridColumn.split('span');
-        const rowParts = ghost.style.gridRow.split('span');
+        const colParts = ghost.style.gridColumn.split("span");
+        const rowParts = ghost.style.gridRow.split("span");
 
         if (colParts.length > 1 && rowParts.length > 1) {
           const finalWSpan = parseInt(colParts[1]);
@@ -844,13 +2145,19 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
 
       // Save order
       try {
-        localStorage.setItem('gt-layout-grid-v2', JSON.stringify(layout));
+        localStorage.setItem("gt-layout-grid-v10", JSON.stringify(layout));
+        console.log("Current Layout JSON:", JSON.stringify(layout));
       } catch (err) {}
 
       applyLayout();
       updateRowHeight();
 
-      ghost.style.display = 'none';
+      // Trigger resize update on Chart.js charts
+      Object.values(chartInstances).forEach((chart: any) => {
+        chart.resize();
+      });
+
+      ghost.style.display = "none";
       activeId = null;
       isDragging = false;
       isResizing = false;
@@ -861,7 +2168,13 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
 
 <style is:global>
   /* ── Reset & CSS Custom Theme Variables ── */
-  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  *,
+  *::before,
+  *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 
   :root {
     /* Theme Option 1: Cyber Dark (Default) */
@@ -873,7 +2186,7 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     --block-bg: rgba(10, 10, 20, 0.95);
     --border-color: rgba(255, 255, 255, 0.08);
     --title-gold: #ffd700;
-    
+
     --badge-bg: rgba(99, 179, 237, 0.1);
     --badge-border: rgba(99, 179, 237, 0.25);
     --badge-color: #63b3ed;
@@ -926,55 +2239,60 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
   }
 
   html[data-theme="paper"] {
-    /* Theme Option 3: Eye-Care Paper Yellow */
-    --bg-color: #f5ebd2;
-    --text-primary: #4a3525;
-    --text-secondary: rgba(74, 53, 37, 0.6);
-    --orbs-opacity: 0.03;
-    --board-bg: rgba(74, 53, 37, 0.02);
-    --block-bg: #fdfaf2;
-    --border-color: rgba(74, 53, 37, 0.12);
-    --title-gold: #8c5525;
+    /* Theme Option 3: Eye-Care Deep Ocean Teal */
+    --bg-color: #003957;
+    --text-primary: #e2e8f0;
+    --text-secondary: rgba(226, 232, 240, 0.5);
+    --orbs-opacity: 0.15;
+    --board-bg: rgba(255, 255, 255, 0.04);
+    --block-bg: #00283e;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --title-gold: #ffd700;
 
-    --badge-bg: rgba(140, 85, 37, 0.06);
-    --badge-border: rgba(140, 85, 37, 0.18);
-    --badge-color: #8c5525;
+    --badge-bg: rgba(255, 215, 0, 0.1);
+    --badge-border: rgba(255, 215, 0, 0.25);
+    --badge-color: #ffd700;
 
-    --pill-bg: rgba(74, 53, 37, 0.02);
-    --pill-border: rgba(74, 53, 37, 0.05);
+    --pill-bg: rgba(255, 255, 255, 0.04);
+    --pill-border: rgba(255, 255, 255, 0.08);
 
-    --btn-bg: #fdfaf2;
-    --btn-sec-text: #6b4a32;
-    --btn-sec-hover: rgba(74, 53, 37, 0.03);
-    --btn-cmc-text: #8c5525;
-    --btn-cmc-hover: rgba(140, 85, 37, 0.06);
-    --btn-alt-text: #b7751b;
-    --btn-alt-hover: rgba(183, 117, 27, 0.06);
-    --btn-reset-text: #8c7052;
-    --btn-reset-hover: rgba(239, 68, 68, 0.08);
+    --btn-bg: #00283e;
+    --btn-sec-text: rgba(226, 232, 240, 0.8);
+    --btn-sec-hover: rgba(255, 255, 255, 0.06);
+    --btn-cmc-text: #63b3ed;
+    --btn-cmc-hover: rgba(99, 179, 237, 0.12);
+    --btn-alt-text: #f59e0b;
+    --btn-alt-hover: rgba(245, 158, 11, 0.08);
+    --btn-reset-text: rgba(226, 232, 240, 0.5);
+    --btn-reset-hover: rgba(239, 68, 68, 0.15);
 
-    --chart-grid-line: rgba(74, 53, 37, 0.08);
+    --chart-grid-line: rgba(255, 255, 255, 0.08);
   }
 
   html {
-    font-size: 17px; /* Set base font size exactly to 17px as requested */
+    font-size: 17px;
     background: var(--bg-color);
     color: var(--text-primary);
-    transition: background 0.3s, color 0.3s;
+    transition:
+      background 0.3s,
+      color 0.3s;
   }
 
   body {
     min-height: 100vh;
     background: var(--bg-color);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-      'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-family:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC",
+      "Microsoft YaHei", sans-serif;
     color: var(--text-primary);
     overflow-x: hidden;
     line-height: 1.5;
-    transition: background 0.3s, color 0.3s;
+    transition:
+      background 0.3s,
+      color 0.3s;
   }
 
-  /* ── Page wrapper ── */
+  /* Page Wrapper */
   .gt-wrapper {
     min-height: 100vh;
     position: relative;
@@ -983,7 +2301,7 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     padding: 2rem 2rem 4rem;
   }
 
-  /* ── Floating Theme Selector ── */
+  /* Floating Theme Selector */
   .gt-theme-selector {
     position: fixed;
     top: 1.5rem;
@@ -997,7 +2315,9 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     z-index: 1000;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(10px);
-    transition: background 0.3s, border-color 0.3s;
+    transition:
+      background 0.3s,
+      border-color 0.3s;
   }
 
   .gt-theme-btn {
@@ -1020,10 +2340,10 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
   .gt-theme-btn.gt-active {
     background: var(--text-primary);
     color: var(--bg-color);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   }
 
-  /* ── Background orbs ── */
+  /* Background orbs */
   .gt-orbs {
     position: fixed;
     inset: 0;
@@ -1034,33 +2354,64 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     transition: opacity 0.3s;
   }
   .gt-orb {
-    position: absolute; border-radius: 50%;
+    position: absolute;
+    border-radius: 50%;
     filter: blur(90px);
     animation: gt-float 12s ease-in-out infinite;
   }
-  .gt-orb1 { width:520px; height:520px; background:radial-gradient(circle,#f59e0b,#ef4444); top:-12%; left:-8%;  }
-  .gt-orb2 { width:420px; height:420px; background:radial-gradient(circle,#8b5cf6,#3b82f6); bottom:-8%; right:-6%; animation-delay:-4s; }
-  .gt-orb3 { width:300px; height:300px; background:radial-gradient(circle,#10b981,#06b6d4); top:45%; left:58%;   animation-delay:-7s; }
-
-  @keyframes gt-float {
-    0%,100% { transform: translate(0,0) scale(1); }
-    33%      { transform: translate(15px,-25px) scale(1.03); }
-    66%      { transform: translate(-12px,15px) scale(0.98); }
+  .gt-orb1 {
+    width: 520px;
+    height: 520px;
+    background: radial-gradient(circle, #f59e0b, #ef4444);
+    top: -12%;
+    left: -8%;
+  }
+  .gt-orb2 {
+    width: 420px;
+    height: 420px;
+    background: radial-gradient(circle, #8b5cf6, #3b82f6);
+    bottom: -8%;
+    right: -6%;
+    animation-delay: -4s;
+  }
+  .gt-orb3 {
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, #10b981, #06b6d4);
+    top: 45%;
+    left: 58%;
+    animation-delay: -7s;
   }
 
-  /* ── Main container ── */
+  @keyframes gt-float {
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+    }
+    33% {
+      transform: translate(15px, -25px) scale(1.03);
+    }
+    66% {
+      transform: translate(-12px, 15px) scale(0.98);
+    }
+  }
+
+  /* Main Container */
   .gt-container {
     position: relative;
     z-index: 1;
     width: 100%;
-    max-width: 1600px; /* Expand to fill widescreen formats */
+    max-width: 1600px;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
   }
 
-  /* ── Header ── */
-  .gt-header { text-align: center; margin-bottom: 0.5rem; }
+  /* Header */
+  .gt-header {
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
 
   .gt-badge {
     display: inline-block;
@@ -1068,37 +2419,49 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     background: var(--badge-bg);
     border: 1px solid var(--badge-border);
     border-radius: 999px;
-    font-size: 0.82rem; color: var(--badge-color);
-    letter-spacing: 0.06em; margin-bottom: 0.7rem;
+    font-size: 0.82rem;
+    color: var(--badge-color);
+    letter-spacing: 0.06em;
+    margin-bottom: 0.7rem;
     transition: all 0.3s;
   }
 
   .gt-title {
     font-size: clamp(2.4rem, 6vw, 3.6rem);
     font-weight: 800;
-    background: linear-gradient(135deg,#ffd700 0%,#f59e0b 40%,#ef4444 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background: linear-gradient(135deg, #ffd700 0%, #f59e0b 40%, #ef4444 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
     background-clip: text;
-    letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 0.4rem;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 0.4rem;
   }
 
-  .gt-sub { font-size: 1rem; color: var(--text-secondary); letter-spacing: 0.04em; transition: color 0.3s; }
+  .gt-sub {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+    transition: color 0.3s;
+  }
 
-  /* ── Core Board (6-column layout, rows configured dynamically to match colWidth) ── */
+  /* Board Grid (6 Columns) */
   .gt-board {
     display: grid;
-    grid-template-columns: repeat(6, 1fr); /* 6 columns base */
-    grid-auto-rows: var(--row-height, 260px); /* rows equal colWidth to make perfect squares */
+    grid-template-columns: repeat(6, 1fr);
+    grid-auto-rows: var(--row-height, 220px);
     gap: 1px;
-    background: var(--border-color); /* 1px grid line */
+    background: var(--border-color);
     border: 1px solid var(--border-color);
     border-radius: 16px;
     position: relative;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-    transition: background 0.3s, border-color 0.3s;
+    transition:
+      background 0.3s,
+      border-color 0.3s;
   }
 
-  /* ── Ghost Preview Box ── */
+  /* Ghost Preview Box */
   .gt-grid-ghost {
     background: rgba(59, 130, 246, 0.15);
     border: 2px dashed #3b82f6;
@@ -1107,17 +2470,19 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     pointer-events: none;
   }
 
-  /* ── Draggable & Resizable Blocks ── */
+  /* Blocks */
   .gt-block {
     background: var(--block-bg);
     display: flex;
     flex-direction: column;
     position: relative;
-    transition: background 0.3s, box-shadow 0.3s, transform 0.3s;
+    transition:
+      background 0.3s,
+      box-shadow 0.3s,
+      transform 0.3s;
     overflow: hidden;
   }
 
-  /* Active dragging/resizing states overrides transitions */
   .gt-block.gt-dragging {
     opacity: 0.7;
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
@@ -1128,7 +2493,7 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     transition: none !important;
   }
 
-  /* Drag Handle */
+  /* Drag handle */
   .gt-drag-handle {
     cursor: grab;
     display: flex;
@@ -1138,7 +2503,10 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     opacity: 0.6;
     padding: 0.28rem;
     border-radius: 6px;
-    transition: background 0.2s, color 0.2s, opacity 0.2s;
+    transition:
+      background 0.2s,
+      color 0.2s,
+      opacity 0.2s;
     user-select: none;
     flex-shrink: 0;
   }
@@ -1151,7 +2519,7 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     cursor: grabbing;
   }
 
-  /* Resize Handle (Corner drag tab) */
+  /* Resize Handle */
   .gt-resize-handle {
     position: absolute;
     bottom: 0;
@@ -1159,17 +2527,23 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     width: 22px;
     height: 22px;
     cursor: se-resize;
-    background: linear-gradient(135deg, transparent 50%, var(--text-secondary) 50%);
+    background: linear-gradient(
+      135deg,
+      transparent 50%,
+      var(--text-secondary) 50%
+    );
     opacity: 0.3;
     border-radius: 0 0 10px 0;
-    transition: background 0.2s, opacity 0.2s;
+    transition:
+      background 0.2s,
+      opacity 0.2s;
     z-index: 15;
   }
   .gt-resize-handle:hover {
     opacity: 0.85;
   }
 
-  /* Default Layout Grid Spans */
+  /* Default Spans */
   .gt-altme {
     grid-column: 1 / span 2;
     grid-row: 1 / span 2;
@@ -1178,34 +2552,55 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     grid-column: 3 / span 4;
     grid-row: 1 / span 2;
   }
+  [data-id="crypto-index"] {
+    grid-column: 1 / span 2;
+    grid-row: 3 / span 2;
+  }
+  [data-id="gold-index"] {
+    grid-column: 3 / span 2;
+    grid-row: 3 / span 2;
+  }
+  [data-id="stock-index"] {
+    grid-column: 5 / span 2;
+    grid-row: 3 / span 2;
+  }
   .gt-cmc-chart {
     grid-column: 1 / span 6;
-    grid-row: 3 / span 2;
+    grid-row: 5 / span 2;
+  }
+  [data-id="crypto-trend"] {
+    grid-column: 1 / span 6;
+    grid-row: 7 / span 2;
+  }
+  [data-id="gold-trend"] {
+    grid-column: 1 / span 6;
+    grid-row: 9 / span 2;
+  }
+  [data-id="stock-trend"] {
+    grid-column: 1 / span 6;
+    grid-row: 11 / span 2;
   }
   .gt-nav-block {
     grid-column: 1 / span 6;
-    grid-row: 5 / span 1;
+    grid-row: 13 / span 1;
   }
 
-  /* Padding inside Widgets */
+  /* Padding inside blocks */
   .gt-altme,
   .gt-cmc-gauge,
   .gt-cmc-chart,
+  .gt-widget-index,
+  .gt-widget-trend,
   .gt-nav-block {
     padding: 1.5rem;
   }
 
-  /* Panel Header inside Widget */
   .gt-panel-head {
     display: flex;
     align-items: center;
     gap: 0.6rem;
     margin-bottom: 0.5rem;
     flex-shrink: 0;
-  }
-  .gt-nav-block .gt-panel-head {
-    padding-bottom: 0.5rem;
-    margin-bottom: 0;
   }
 
   .gt-panel-title {
@@ -1226,6 +2621,17 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     text-decoration: underline;
   }
 
+  /* New Widgets Title Styles */
+  .text-crypto {
+    color: #5dade2;
+  }
+  .text-gold {
+    color: #f5b041;
+  }
+  .text-stock {
+    color: #52be80;
+  }
+
   .gt-source {
     font-size: 0.8rem;
     color: var(--text-secondary);
@@ -1233,7 +2639,7 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     transition: color 0.3s;
   }
 
-  /* Alt.me elements */
+  /* Altme link elements */
   .gt-img-link {
     display: flex;
     align-items: center;
@@ -1242,25 +2648,72 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     border-radius: 10px;
     overflow: hidden;
     flex: 1;
-    transition: transform 0.3s, box-shadow 0.3s;
+    transition:
+      transform 0.3s,
+      box-shadow 0.3s;
     margin-bottom: 0.5rem;
     min-height: 0;
   }
-  .gt-img-link:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
-  .gt-img-wrap { position: relative; border-radius: 10px; overflow: hidden; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-  .gt-img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; border-radius: 10px; transition: filter 0.3s; }
-  .gt-img-ov {
-    position: absolute; inset: 0;
-    background: rgba(0,0,0,0.45);
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 0.4rem;
-    opacity: 0; transition: opacity 0.3s; border-radius: 10px;
+  .gt-img-link:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
   }
-  .gt-img-link:hover .gt-img-ov  { opacity: 1; }
-  .gt-img-link:hover .gt-img     { filter: brightness(0.6) blur(1.5px); }
-  .gt-ov-icon { font-size: 2rem; animation: gt-pulse 1.6s ease-in-out infinite; }
-  .gt-ov-text { font-size: 0.88rem; font-weight: 600; color: #ffd700; letter-spacing: 0.06em; }
-  @keyframes gt-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.14)} }
+  .gt-img-wrap {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .gt-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+    border-radius: 10px;
+    transition: filter 0.3s;
+  }
+  .gt-img-ov {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    border-radius: 10px;
+  }
+  .gt-img-link:hover .gt-img-ov {
+    opacity: 1;
+  }
+  .gt-img-link:hover .gt-img {
+    filter: brightness(0.6) blur(1.5px);
+  }
+  .gt-ov-icon {
+    font-size: 2rem;
+    animation: gt-pulse 1.6s ease-in-out infinite;
+  }
+  .gt-ov-text {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #ffd700;
+    letter-spacing: 0.06em;
+  }
+  @keyframes gt-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.14);
+    }
+  }
 
   .gt-hint {
     font-size: 0.8rem;
@@ -1271,7 +2724,7 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     transition: color 0.3s;
   }
 
-  /* CMC Body Link Wrap */
+  /* CMC Body Link */
   .gt-cmc-body-link {
     text-decoration: none;
     color: inherit;
@@ -1285,14 +2738,18 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     filter: brightness(1.03);
   }
 
-  .gt-cmc-title { color: #63b3ed !important; }
+  .gt-cmc-title {
+    color: #63b3ed !important;
+  }
   .gt-cmc-badge {
     margin-left: auto;
     padding: 0.2rem 0.6rem;
     background: var(--badge-bg);
     border: 1px solid var(--badge-border);
     border-radius: 5px;
-    font-size: 0.8rem; font-weight: 700; color: var(--badge-color);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--badge-color);
     letter-spacing: 0.06em;
     transition: all 0.3s;
   }
@@ -1300,14 +2757,33 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
   /* Placeholder */
   .gt-placeholder {
     flex: 1;
-    display: flex; align-items: center; justify-content: center; min-height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 180px;
   }
-  .gt-ph-inner { text-align: center; }
-  .gt-ph-icon  { font-size: 2.5rem; margin-bottom: 0.7rem; }
-  .gt-ph-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.4rem; transition: color 0.3s; }
-  .gt-ph-desc  { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; transition: color 0.3s; }
+  .gt-ph-inner {
+    text-align: center;
+  }
+  .gt-ph-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.7rem;
+  }
+  .gt-ph-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.4rem;
+    transition: color 0.3s;
+  }
+  .gt-ph-desc {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    transition: color 0.3s;
+  }
 
-  /* Gauge Block Internal Styling */
+  /* Gauge wrapping */
   .gt-gauge-wrap {
     display: flex;
     flex-direction: column;
@@ -1320,18 +2796,39 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     overflow-y: auto;
     transition: border-color 0.3s;
   }
-  .gt-gauge { width: 100%; max-width: 220px; margin: 0 auto; display: block; flex-shrink: 0; }
+  .gt-gauge {
+    width: 100%;
+    max-width: 220px;
+    margin: 0 auto;
+    display: block;
+    flex-shrink: 0;
+  }
 
-  .gt-pills { display: flex; flex-direction: column; gap: 0.42rem; flex-shrink: 0; }
+  .gt-pills {
+    display: flex;
+    flex-direction: column;
+    gap: 0.42rem;
+    flex-shrink: 0;
+  }
   .gt-pill {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     background: var(--pill-bg);
     border: 1px solid var(--pill-border);
-    border-radius: 7px; padding: 0.36rem 0.65rem;
+    border-radius: 7px;
+    padding: 0.36rem 0.65rem;
     transition: all 0.3s;
   }
-  .gt-pill-label { font-size: 0.95rem; color: var(--text-secondary); transition: color 0.3s; }
-  .gt-pill-val   { font-size: 0.95rem; font-weight: 600; }
+  .gt-pill-label {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    transition: color 0.3s;
+  }
+  .gt-pill-val {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
 
   .gt-year {
     display: grid;
@@ -1344,7 +2841,9 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     flex: 1;
     margin-top: auto;
     min-height: 80px;
-    transition: background 0.3s, border-color 0.3s;
+    transition:
+      background 0.3s,
+      border-color 0.3s;
   }
   .gt-year-block {
     background: var(--block-bg);
@@ -1370,7 +2869,7 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     transition: color 0.3s;
   }
 
-  /* Combined Chart & Ranges Container */
+  /* Combined layout for original CMC chart */
   .gt-chart-info-combined {
     display: flex;
     flex-direction: column;
@@ -1379,7 +2878,6 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     min-height: 0;
   }
 
-  /* Chart Block Internal Styling */
   .gt-chart-wrap-container {
     display: flex;
     flex-direction: column;
@@ -1395,7 +2893,12 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     flex-wrap: wrap;
     gap: 0.5rem;
   }
-  .gt-chart-label { font-size: 1rem; color: var(--text-secondary); transition: color 0.3s; margin: 0; }
+  .gt-chart-label {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    transition: color 0.3s;
+    margin: 0;
+  }
   .gt-chart-tabs {
     display: flex;
     background: var(--pill-bg);
@@ -1403,6 +2906,7 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     border-radius: 6px;
     padding: 0.15rem;
   }
+
   .gt-tab-btn {
     background: transparent;
     border: none;
@@ -1424,43 +2928,78 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
   }
   .gt-chart-wrap {
     position: relative;
-    background: rgba(0,0,0,0.18);
+    background: rgba(0, 0, 0, 0.18);
     border: 1px solid var(--border-color);
-    border-radius: 10px; padding: 0.4rem 0.4rem 1.6rem 2.3rem;
+    border-radius: 10px;
+    padding: 0.4rem 0.4rem 1.6rem 2.3rem;
     transition: border-color 0.3s;
   }
-  .gt-line-chart { width: 100%; height: 110px; display: block; overflow: visible; }
+  .gt-line-chart {
+    width: 100%;
+    height: 110px;
+    display: block;
+    overflow: visible;
+  }
   .gt-y-axis {
-    position: absolute; left: 0; top: 0.4rem; bottom: 1.6rem; width: 2rem;
-    display: flex; flex-direction: column; justify-content: space-between;
-    align-items: flex-end; padding-right: 0.28rem;
-    font-size: 0.8rem; color: var(--text-secondary); opacity: 0.7; pointer-events: none;
+    position: absolute;
+    left: 0;
+    top: 0.4rem;
+    bottom: 1.6rem;
+    width: 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-right: 0.28rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    opacity: 0.7;
+    pointer-events: none;
     transition: color 0.3s;
   }
   .gt-x-axis {
-    display: flex; justify-content: space-between; margin-top: 0.3rem;
-    font-size: 0.8rem; color: var(--text-secondary); opacity: 0.7;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.3rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    opacity: 0.7;
     transition: color 0.3s;
   }
   .gt-legend {
-    display: flex; flex-wrap: wrap; gap: 0.35rem 0.8rem; margin-top: 0.2rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.8rem;
+    margin-top: 0.2rem;
   }
-  .gt-legend-item { display: flex; align-items: center; gap: 0.28rem; font-size: 0.85rem; color: var(--text-secondary); transition: color 0.3s; }
-  .gt-legend-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .gt-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.28rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    transition: color 0.3s;
+  }
+  .gt-legend-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
 
-  /* Info cards (Adaptive Grid inside Combined panel) */
+  /* Info cards */
   .gt-info {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: 1px;
-    background: var(--border-color); /* inner separators */
+    background: var(--border-color);
     flex-shrink: 0;
     transition: background 0.3s;
   }
   .gt-icard {
     background: var(--block-bg);
     border: none;
-    border-top: 3px solid var(--c, rgba(255,255,255,0.12));
+    border-top: 3px solid var(--c, rgba(255, 255, 255, 0.12));
     padding: 1.2rem 0.65rem;
     text-align: center;
     transition: background 0.3s;
@@ -1469,16 +3008,107 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     justify-content: center;
     min-height: 130px;
   }
-  .gt-icard:hover { background: var(--btn-sec-hover); }
-  .gt-icard-icon  { font-size: 1.5rem; margin-bottom: 0.25rem; }
-  .gt-icard-label { font-size: 1.02rem; font-weight: 700; margin-bottom: 0.15rem; }
-  .gt-icard-range { font-size: 1.08rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; font-variant-numeric: tabular-nums; transition: color 0.3s; }
-  .gt-icard-desc  { font-size: 0.95rem; color: var(--text-secondary); line-height: 1.3; transition: color 0.3s; }
+  .gt-icard:hover {
+    background: var(--btn-sec-hover);
+  }
+  .gt-icard-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+  }
+  .gt-icard-label {
+    font-size: 1.02rem;
+    font-weight: 700;
+    margin-bottom: 0.15rem;
+  }
+  .gt-icard-range {
+    font-size: 1.08rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.3s;
+  }
+  .gt-icard-desc {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    line-height: 1.3;
+    transition: color 0.3s;
+  }
 
-  /* Navigation Toolbar */
+  /* ==================== NEW COMPONENTS SPECIFIC STYLES ==================== */
+  .gt-widget-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .gt-gauge-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
+    gap: 0.5rem;
+  }
+
+  .gt-sub-metrics {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-top: 0.2rem;
+  }
+
+  .gt-sub-metric-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    background: var(--pill-bg);
+    border: 1px solid var(--pill-border);
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+  }
+  .gt-sub-metric-row span:first-child {
+    color: var(--text-secondary);
+  }
+  .gt-sub-metric-row span:last-child {
+    font-weight: 600;
+  }
+
+  .gt-year-highlow {
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border-color);
+    padding-top: 0.4rem;
+    margin-top: auto;
+  }
+
+  /* Trend Chart tab list inside new widgets */
+  .gt-widget-trend .gt-chart-tabs {
+    margin-left: auto;
+  }
+
+  .chart-body {
+    padding-top: 0.5rem;
+  }
+
+  .chart-container-el {
+    position: relative;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  /* Navigation toolbar */
   .gt-nav {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 1px;
     background: var(--border-color);
     flex: 1;
@@ -1497,6 +3127,7 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     background: var(--btn-bg);
     transition: all 0.25s;
     letter-spacing: 0.02em;
+    cursor: pointer;
   }
   .gt-btn-sec {
     color: var(--btn-sec-text);
@@ -1505,29 +3136,38 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     background: var(--btn-sec-hover);
     color: var(--text-primary);
   }
+
   .gt-btn-cmc {
     color: var(--btn-cmc-text);
   }
   .gt-btn-cmc:hover {
     background: var(--btn-cmc-hover);
   }
+
   .gt-btn-alt {
     color: var(--btn-alt-text);
   }
   .gt-btn-alt:hover {
     background: var(--btn-alt-hover);
   }
+
+  .gt-btn-fgi {
+    color: var(--badge-color);
+  }
+  .gt-btn-fgi:hover {
+    background: var(--badge-bg);
+  }
+
   .gt-btn-reset {
     color: var(--btn-reset-text);
-    cursor: pointer;
   }
   .gt-btn-reset:hover {
     background: var(--btn-reset-hover);
     color: #ef4444;
   }
 
-  /* Responsive theme selector & collapse sizes */
-  @media (max-width: 860px) {
+  /* Responsive styling */
+  @media (max-width: 960px) {
     .gt-wrapper {
       padding: 2rem 1rem 3rem;
     }
@@ -1543,6 +3183,10 @@ const needleColor = latest ? valueColor(latest.value) : '#94a3b8';
     .gt-block {
       grid-column: auto !important;
       grid-row: auto !important;
+      min-height: 280px;
+    }
+    .gt-widget-trend {
+      min-height: 350px;
     }
     .gt-resize-handle {
       display: none !important;
