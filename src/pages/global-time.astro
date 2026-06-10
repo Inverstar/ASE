@@ -1,0 +1,1687 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { fetchFgiData } from '../utils/fgi';
+import { generateIndicatorData } from '../utils/sentiment';
+
+// Helper functions for dynamic calculations
+function polar(cx: number, cy: number, r: number, deg: number) {
+  const rad = (deg * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
+}
+
+function gaugeArc(cx: number, cy: number, r: number, fromVal: number, toVal: number, scaleMin = 0, scaleMax = 100) {
+  const fromPct = (fromVal - scaleMin) / (scaleMax - scaleMin);
+  const toPct = (toVal - scaleMin) / (scaleMax - scaleMin);
+  const fromDeg = 180 - fromPct * 180;
+  const toDeg = 180 - toPct * 180;
+  const p1 = polar(cx, cy, r, fromDeg);
+  const p2 = polar(cx, cy, r, toDeg);
+  const large = Math.abs(toPct - fromPct) > 0.5 ? 1 : 0;
+  return `M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} A ${r} ${r} 0 ${large} 0 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+}
+
+function fgiValueColor(v: number) {
+  if (v <= 25) return '#ea3943';
+  if (v <= 45) return '#f97316';
+  if (v <= 55) return '#eab308';
+  if (v <= 75) return '#84cc16';
+  return '#16c784';
+}
+
+function fgiZhClass(v: number) {
+  if (v <= 25) return '极度恐惧';
+  if (v <= 45) return '恐惧';
+  if (v <= 55) return '中性';
+  if (v <= 75) return '贪婪';
+  return '极度贪婪';
+}
+
+// 1. Fetch real FGI data (Stock, Crypto, Gold)
+let fgiData = null;
+let fgiError = null;
+try {
+  fgiData = await fetchFgiData();
+} catch (e: any) {
+  fgiError = e.message;
+}
+
+// 2. Fetch generated local indicators (VIX, AAII, NAAIM, PCR, DXY, US10Y)
+const sentimentData = generateIndicatorData();
+
+// Extract metrics
+const cnnVal = fgiData ? fgiData.stock.currentValue : 50;
+const cnnHistory = fgiData ? fgiData.stock.historicalData : [];
+
+const btcVal = fgiData ? fgiData.crypto.currentValue : 50;
+const btcHistory = fgiData ? fgiData.crypto.historicalData : [];
+
+const goldVal = fgiData ? fgiData.gold.currentValue : 50;
+const goldHistory = fgiData ? fgiData.gold.historicalData : [];
+
+const vixVal = sentimentData.vix.currentValue;
+const vixHistory = sentimentData.vix.historicalData;
+
+const pcrVal = sentimentData.pcr.currentValue;
+const pcrHistory = sentimentData.pcr.historicalData;
+
+const dxyVal = sentimentData.dxy.currentValue;
+const dxyHistory = sentimentData.dxy.historicalData;
+
+const naaimVal = sentimentData.naaim.currentValue;
+const naaimHistory = sentimentData.naaim.historicalData;
+
+const us10yVal = sentimentData.us10y.currentValue;
+const us10yHistory = sentimentData.us10y.historicalData;
+
+const aaiiVal = sentimentData.aaii.currentValue;
+const aaiiHistory = sentimentData.aaii.historicalData;
+
+// Value mappings for specific asset states
+function getVixState(v: number) {
+  if (v < 15) return { text: '极度乐观', color: '#16c784' };
+  if (v < 20) return { text: '正常状态', color: '#84cc16' };
+  if (v < 30) return { text: '紧张情绪', color: '#eab308' };
+  if (v < 40) return { text: '恐慌情绪', color: '#f97316' };
+  return { text: '危机恐慌', color: '#ea3943' };
+}
+
+function getPcrState(v: number) {
+  if (v < 0.7) return { text: '过度乐观', color: '#16c784' };
+  if (v <= 1.0) return { text: '正常比例', color: '#84cc16' };
+  if (v <= 1.2) return { text: '看跌紧张', color: '#eab308' };
+  return { text: '极度恐慌', color: '#ea3943' };
+}
+
+function getNaaimState(v: number) {
+  if (v < 30) return { text: '极其谨慎', color: '#ea3943' };
+  if (v < 60) return { text: '防守防御', color: '#f97316' };
+  if (v < 80) return { text: '中性仓位', color: '#eab308' };
+  if (v < 100) return { text: '主动做多', color: '#84cc16' };
+  return { text: '杠杆满仓', color: '#16c784' };
+}
+
+// SVG Gauge helper parameters
+const NGCX = 100, NGCY = 92, NGR = 72;
+---
+
+<Layout>
+<div class="gt-wrapper">
+  <!-- 背景光晕 -->
+  <div class="gt-orbs">
+    <div class="gt-orb gt-orb1"></div>
+    <div class="gt-orb gt-orb2"></div>
+    <div class="gt-orb gt-orb3"></div>
+  </div>
+
+  <!-- 主题切换栏 -->
+  <div class="gt-theme-selector">
+    <button class="gt-theme-btn" data-theme-val="dark" title="深色模式">🌙</button>
+    <button class="gt-theme-btn" data-theme-val="light" title="浅色模式">☀️</button>
+    <button class="gt-theme-btn" data-theme-val="paper" title="护眼纸黄">📖</button>
+  </div>
+
+  <div class="gt-container">
+    <!-- 标题 -->
+    <div class="gt-header">
+      <div class="gt-badge">🌍 全球宏观情绪与周期看板</div>
+      <h1 class="gt-title">美丽与漂亮</h1>
+      <p class="gt-sub">实时洞察美股、加密、流动性、机构仓位与避险情绪</p>
+    </div>
+
+    <!-- 可拖拽及自适应大小的控制台面板 (6列) -->
+    <div class="gt-board">
+      
+      <!-- ==================== 2. VIX Volatility ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="vix-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-vix">VIX 恐慌指数</h2>
+          <span class="gt-source">CBOE VIX</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-gauge-box">
+            <svg viewBox="0 0 200 105" class="gt-gauge">
+              <!-- VIX scale maps from 10 (optimism) to 50 (panic) -->
+              <path d={gaugeArc(NGCX, NGCY, NGR, 10, 15, 10, 50)} stroke="#16c784" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 15, 20, 10, 50)} stroke="#84cc16" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 20, 30, 10, 50)} stroke="#eab308" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 30, 40, 10, 50)} stroke="#f97316" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 40, 50, 10, 50)} stroke="#ea3943" stroke-width="12" fill="none" opacity="0.85" />
+              {(() => {
+                const angleVal = Math.max(10, Math.min(50, vixVal));
+                const pct = (angleVal - 10) / 40;
+                return (
+                  <line 
+                    x1={NGCX} y1={NGCY} 
+                    x2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).x.toFixed(2)} 
+                    y2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).y.toFixed(2)} 
+                    stroke={getVixState(vixVal).color} stroke-width="3" stroke-linecap="round" 
+                  />
+                );
+              })()}
+              <circle cx={NGCX} cy={NGCY} r="5" fill={getVixState(vixVal).color}/>
+              <circle cx={NGCX} cy={NGCY} r="2.5" fill="var(--block-bg)"/>
+              <text x={NGCX} y={NGCY - 14} text-anchor="middle" font-size="25" font-weight="800" fill={getVixState(vixVal).color}>{vixVal.toFixed(1)}</text>
+              <text x={NGCX} y={NGCY - 1} text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text-primary)">{getVixState(vixVal).text}</text>
+            </svg>
+            <p class="gt-gauge-desc">标普 500 预期波动率</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 4. AAII Sentiment ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="aaii-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-aaii">AAII 散户调查</h2>
+          <span class="gt-source">AAII Survey</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-aaii-container">
+            <div class="gt-aaii-bars">
+              <div class="gt-aaii-bar-item">
+                <span class="aaii-lbl">看多 (Bull)</span>
+                <div class="aaii-track"><div class="aaii-fill fill-bull" style={`width: ${aaiiVal.bullish}%`}></div></div>
+                <span class="aaii-pct text-stock">{aaiiVal.bullish}%</span>
+              </div>
+              <div class="gt-aaii-bar-item">
+                <span class="aaii-lbl">看空 (Bear)</span>
+                <div class="aaii-track"><div class="aaii-fill fill-bear" style={`width: ${aaiiVal.bearish}%`}></div></div>
+                <span class="aaii-pct text-red">{aaiiVal.bearish}%</span>
+              </div>
+              <div class="gt-aaii-bar-item">
+                <span class="aaii-lbl">中性 (Neut)</span>
+                <div class="aaii-track"><div class="aaii-fill fill-neut" style={`width: ${aaiiVal.neutral}%`}></div></div>
+                <span class="aaii-pct text-gold">{aaiiVal.neutral}%</span>
+              </div>
+            </div>
+            
+            {(() => {
+              const spread = aaiiVal.bullish - aaiiVal.bearish;
+              const isOverheat = aaiiVal.bullish > 50;
+              const isBottom = aaiiVal.bearish > 50;
+              return (
+                <div class="gt-aaii-verdict">
+                  <p class="spread-val">多空偏离差 (Spread): <span style={`color: ${spread >= 0 ? '#16c784' : '#ea3943'}; font-weight:700`}>{spread > 0 ? `+${spread}` : spread}%</span></p>
+                  {isOverheat && <div class="aaii-badge bg-danger">⚠️ 散户过度看多 (逆向见顶信号)</div>}
+                  {isBottom && <div class="aaii-badge bg-success">📉 散户过度看空 (逆向见底信号)</div>}
+                  {!isOverheat && !isBottom && <div class="aaii-badge bg-normal">⚖️ 情绪分化正常</div>}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 5. NAAIM Exposure ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="naaim-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-naaim">NAAIM 机构仓位</h2>
+          <span class="gt-source">NAAIM Index</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-gauge-box">
+            <svg viewBox="0 0 200 105" class="gt-gauge">
+              <!-- Scale from 0 to 120 (since managers can leverage) -->
+              <path d={gaugeArc(NGCX, NGCY, NGR, 0, 30, 0, 120)} stroke="#ea3943" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 30, 60, 0, 120)} stroke="#f97316" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 60, 80, 0, 120)} stroke="#eab308" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 80, 100, 0, 120)} stroke="#84cc16" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 100, 120, 0, 120)} stroke="#16c784" stroke-width="12" fill="none" opacity="0.85" />
+              {(() => {
+                const angleVal = Math.max(0, Math.min(120, naaimVal));
+                const pct = angleVal / 120;
+                return (
+                  <line 
+                    x1={NGCX} y1={NGCY} 
+                    x2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).x.toFixed(2)} 
+                    y2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).y.toFixed(2)} 
+                    stroke={getNaaimState(naaimVal).color} stroke-width="3" stroke-linecap="round" 
+                  />
+                );
+              })()}
+              <circle cx={NGCX} cy={NGCY} r="5" fill={getNaaimState(naaimVal).color}/>
+              <circle cx={NGCX} cy={NGCY} r="2.5" fill="var(--block-bg)"/>
+              <text x={NGCX} y={NGCY - 14} text-anchor="middle" font-size="25" font-weight="800" fill={getNaaimState(naaimVal).color}>{Math.round(naaimVal)}%</text>
+              <text x={NGCX} y={NGCY - 1} text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text-primary)">{getNaaimState(naaimVal).text}</text>
+            </svg>
+            <p class="gt-gauge-desc">主动型基金经理权益类仓位</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 6. Put/Call Ratio ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="pcr-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-pcr">Put/Call 期权比</h2>
+          <span class="gt-source">PCR Ratio</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-gauge-box">
+            <svg viewBox="0 0 200 105" class="gt-gauge">
+              <!-- Scale from 0.4 (optimistic) to 1.4 (fear) -->
+              <path d={gaugeArc(NGCX, NGCY, NGR, 0.4, 0.7, 0.4, 1.4)} stroke="#16c784" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 0.7, 1.0, 0.4, 1.4)} stroke="#84cc16" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 1.0, 1.2, 0.4, 1.4)} stroke="#eab308" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 1.2, 1.4, 0.4, 1.4)} stroke="#ea3943" stroke-width="12" fill="none" opacity="0.85" />
+              {(() => {
+                const angleVal = Math.max(0.4, Math.min(1.4, pcrVal));
+                const pct = (angleVal - 0.4) / 1.0;
+                return (
+                  <line 
+                    x1={NGCX} y1={NGCY} 
+                    x2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).x.toFixed(2)} 
+                    y2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).y.toFixed(2)} 
+                    stroke={getPcrState(pcrVal).color} stroke-width="3" stroke-linecap="round" 
+                  />
+                );
+              })()}
+              <circle cx={NGCX} cy={NGCY} r="5" fill={getPcrState(pcrVal).color}/>
+              <circle cx={NGCX} cy={NGCY} r="2.5" fill="var(--block-bg)"/>
+              <text x={NGCX} y={NGCY - 14} text-anchor="middle" font-size="25" font-weight="800" fill={getPcrState(pcrVal).color}>{pcrVal.toFixed(2)}</text>
+              <text x={NGCX} y={NGCY - 1} text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text-primary)">{getPcrState(pcrVal).text}</text>
+            </svg>
+            <p class="gt-gauge-desc">看跌与看涨期权持仓量之比</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 7. DXY Dollar Index ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="dxy-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-dxy">美元指数 (DXY)</h2>
+          <span class="gt-source">US Dollar</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-gauge-box">
+            <svg viewBox="0 0 200 105" class="gt-gauge">
+              <!-- Scale from 96 to 110 -->
+              <path d={gaugeArc(NGCX, NGCY, NGR, 96, 99, 96, 110)} stroke="#16c784" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 99, 103, 96, 110)} stroke="#84cc16" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 103, 106, 96, 110)} stroke="#eab308" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 106, 110, 96, 110)} stroke="#ea3943" stroke-width="12" fill="none" opacity="0.85" />
+              {(() => {
+                const angleVal = Math.max(96, Math.min(110, dxyVal));
+                const pct = (angleVal - 96) / 14;
+                const activeColor = dxyVal < 100 ? '#16c784' : dxyVal < 103 ? '#84cc16' : dxyVal < 106 ? '#eab308' : '#ea3943';
+                return (
+                  <>
+                    <line 
+                      x1={NGCX} y1={NGCY} 
+                      x2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).x.toFixed(2)} 
+                      y2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).y.toFixed(2)} 
+                      stroke={activeColor} stroke-width="3" stroke-linecap="round" 
+                    />
+                    <circle cx={NGCX} cy={NGCY} r="5" fill={activeColor}/>
+                  </>
+                );
+              })()}
+              <circle cx={NGCX} cy={NGCY} r="2.5" fill="var(--block-bg)"/>
+              <text x={NGCX} y={NGCY - 14} text-anchor="middle" font-size="25" font-weight="800" fill={dxyVal < 103 ? '#16c784' : '#ea3943'}>{dxyVal.toFixed(2)}</text>
+              <text x={NGCX} y={NGCY - 1} text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text-primary)">{dxyVal < 100 ? '资金流出 / 风险偏好高' : dxyVal < 103 ? '汇率正常' : '避险资金回流 / 流动性收紧'}</text>
+            </svg>
+            <p class="gt-gauge-desc">美元兑六种主要货币的汇率</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 8. US10Y Yield ==================== -->
+      <div class="gt-block gt-gauge-block" data-id="us10y-index">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title text-rate">美债10Y收益率</h2>
+          <span class="gt-source">US10Y Yield</span>
+        </div>
+        <div class="gt-widget-body">
+          <div class="gt-gauge-box">
+            <svg viewBox="0 0 200 105" class="gt-gauge">
+              <!-- Scale from 2.8% to 5.2% -->
+              <path d={gaugeArc(NGCX, NGCY, NGR, 2.8, 3.5, 2.8, 5.2)} stroke="#16c784" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 3.5, 4.2, 2.8, 5.2)} stroke="#84cc16" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 4.2, 4.7, 2.8, 5.2)} stroke="#eab308" stroke-width="12" fill="none" opacity="0.85" />
+              <path d={gaugeArc(NGCX, NGCY, NGR, 4.7, 5.2, 2.8, 5.2)} stroke="#ea3943" stroke-width="12" fill="none" opacity="0.85" />
+              {(() => {
+                const angleVal = Math.max(2.8, Math.min(5.2, us10yVal));
+                const pct = (angleVal - 2.8) / 2.4;
+                const activeColor = us10yVal < 3.5 ? '#16c784' : us10yVal < 4.2 ? '#84cc16' : us10yVal < 4.7 ? '#eab308' : '#ea3943';
+                return (
+                  <>
+                    <line 
+                      x1={NGCX} y1={NGCY} 
+                      x2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).x.toFixed(2)} 
+                      y2={polar(NGCX, NGCY, NGR - 8, 180 - pct * 180).y.toFixed(2)} 
+                      stroke={activeColor} stroke-width="3" stroke-linecap="round" 
+                    />
+                    <circle cx={NGCX} cy={NGCY} r="5" fill={activeColor}/>
+                  </>
+                );
+              })()}
+              <circle cx={NGCX} cy={NGCY} r="2.5" fill="var(--block-bg)"/>
+              <text x={NGCX} y={NGCY - 14} text-anchor="middle" font-size="25" font-weight="800" fill={us10yVal < 4.2 ? '#16c784' : '#ea3943'}>{us10yVal.toFixed(3)}%</text>
+              <text x={NGCX} y={NGCY - 1} text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text-primary)">{us10yVal < 3.8 ? '流动性充裕 / 无利率压力' : us10yVal < 4.5 ? '利率平稳' : '估值承压 / 融资成本上升'}</text>
+            </svg>
+            <p class="gt-gauge-desc">无风险资产基准与宏观周期</p>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 10. CNN & VIX Trend ==================== -->
+      <div class="gt-block gt-double-trend" data-id="cnn-vix-trend">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title">美股情绪动量与波动率 (CNN &amp; VIX)</h2>
+          <div class="gt-chart-tabs" data-target="cnn-vix">
+            <button class="gt-tab-btn" data-range="7">7天</button>
+            <button class="gt-tab-btn active" data-range="30">30天</button>
+            <button class="gt-tab-btn" data-range="180">半年</button>
+            <button class="gt-tab-btn" data-range="365">1年</button>
+          </div>
+        </div>
+        <div class="gt-widget-body chart-body">
+          <div class="chart-container-el">
+            <canvas id="cnn-vix-chart" data-history-1={JSON.stringify(cnnHistory)} data-history-2={JSON.stringify(vixHistory)} data-label-1="CNN Fear & Greed" data-label-2="VIX Volatility"></canvas>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 11. AAII & NAAIM Trend ==================== -->
+      <div class="gt-block gt-double-trend" data-id="aaii-naaim-trend">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title">多头格局：散户看多率 vs 机构仓位 (AAII &amp; NAAIM)</h2>
+          <div class="gt-chart-tabs" data-target="aaii-naaim">
+            <button class="gt-tab-btn" data-range="7">7天</button>
+            <button class="gt-tab-btn active" data-range="30">30天</button>
+            <button class="gt-tab-btn" data-range="180">半年</button>
+            <button class="gt-tab-btn" data-range="365">1年</button>
+          </div>
+        </div>
+        <div class="gt-widget-body chart-body">
+          <div class="chart-container-el">
+            <canvas id="aaii-naaim-chart" data-history-1={JSON.stringify(aaiiHistory)} data-history-2={JSON.stringify(naaimHistory)} data-label-1="AAII Bullish %" data-label-2="NAAIM Exposure %"></canvas>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 12. DXY & US10Y Trend ==================== -->
+      <div class="gt-block gt-double-trend" data-id="dxy-us10y-trend">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title">全球流动性与宏观无风险利率 (DXY &amp; US10Y)</h2>
+          <div class="gt-chart-tabs" data-target="dxy-us10y">
+            <button class="gt-tab-btn" data-range="7">7天</button>
+            <button class="gt-tab-btn active" data-range="30">30天</button>
+            <button class="gt-tab-btn" data-range="180">半年</button>
+            <button class="gt-tab-btn" data-range="365">1年</button>
+          </div>
+        </div>
+        <div class="gt-widget-body chart-body">
+          <div class="chart-container-el">
+            <canvas id="dxy-us10y-chart" data-history-1={JSON.stringify(dxyHistory)} data-history-2={JSON.stringify(us10yHistory)} data-label-1="Dollar Index (DXY)" data-label-2="US 10-Year Bond Yield %"></canvas>
+          </div>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+      <!-- ==================== 14. 导航及宏观大周期配置 ==================== -->
+      <div class="gt-block gt-nav-block" data-id="nav">
+        <div class="gt-panel-head">
+          <div class="gt-drag-handle" title="按住拖拽调整位置">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+              <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+          </div>
+          <h2 class="gt-panel-title" style="color: var(--text-secondary);">快捷导航与周期看板</h2>
+        </div>
+        <div class="gt-nav">
+          <a href="/golden-time" class="gt-btn gt-btn-sec">← 返回数字与黄金 (单市场)</a>
+          <a href="/" class="gt-btn gt-btn-sec">← 返回个人主页</a>
+          <a href="https://feargreedindex.org" target="_blank" rel="noopener noreferrer" class="gt-btn gt-btn-fgi">FGI Dashboard ↗</a>
+          <a href="https://www.cboe.com/tradable_products/vix/" target="_blank" rel="noopener noreferrer" class="gt-btn gt-btn-cmc">VIX Dashboard ↗</a>
+          <a href="https://naaim.org/programs/naaim-exposure-index/" target="_blank" rel="noopener noreferrer" class="gt-btn gt-btn-alt">NAAIM Exposure Index ↗</a>
+          <button id="gt-reset-layout" class="gt-btn gt-btn-reset">重置环球布局 ↺</button>
+        </div>
+        <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+      </div>
+
+    </div><!-- /gt-board -->
+  </div><!-- /gt-container -->
+</div><!-- /gt-wrapper -->
+</Layout>
+
+<!-- Inject Chart.js preloads in Browser -->
+<script is:inline src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script is:inline src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script is:inline src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<script is:inline src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+
+<script>
+  // Immediately read and set theme to avoid FOUC
+  const savedTheme = (() => {
+    try {
+      return localStorage.getItem('gt-theme-v2') || 'paper';
+    } catch (e) {
+      return 'paper';
+    }
+  })();
+  document.documentElement.setAttribute('data-theme', savedTheme);
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Register plugins
+    if (window.Chart && window.chartjsPluginAnnotation && window.chartjsPluginZoom) {
+      window.Chart.register(window.chartjsPluginAnnotation);
+      window.Chart.register(window.chartjsPluginZoom);
+    }
+
+    // --- Color mapping helper functions ---
+    const getThemeColors = () => {
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+      const isPaper = document.documentElement.getAttribute('data-theme') === 'paper';
+      return {
+        gridColor: isLight ? 'rgba(0, 0, 0, 0.05)' : isPaper ? 'rgba(74, 53, 37, 0.07)' : 'rgba(255, 255, 255, 0.06)',
+        textColor: isLight ? '#475569' : isPaper ? '#6b4a32' : '#94a3b8'
+      };
+    };
+
+    const getFgiColor = (v: number) => {
+      if (v <= 25) return "#ea3943";
+      if (v <= 45) return "#f97316";
+      if (v <= 55) return "#eab308";
+      if (v <= 75) return "#84cc16";
+      return "#16c784";
+    };
+
+    const getFgiBg = (v: number) => {
+      const hex = getFgiColor(v);
+      if (hex === "#ea3943") return "rgba(234, 57, 67, 0.04)";
+      if (hex === "#f97316") return "rgba(249, 115, 22, 0.04)";
+      if (hex === "#eab308") return "rgba(234, 179, 8, 0.04)";
+      if (hex === "#84cc16") return "rgba(132, 204, 22, 0.04)";
+      return "rgba(22, 199, 132, 0.04)";
+    };
+
+    const getFgiLineGradient = (ctx: CanvasRenderingContext2D, chartArea: any) => {
+      const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+      gradient.addColorStop(0, "#ea3943");
+      gradient.addColorStop(0.25, "#ea3943");
+      gradient.addColorStop(0.25, "#f97316");
+      gradient.addColorStop(0.45, "#f97316");
+      gradient.addColorStop(0.45, "#eab308");
+      gradient.addColorStop(0.55, "#eab308");
+      gradient.addColorStop(0.55, "#84cc16");
+      gradient.addColorStop(0.75, "#84cc16");
+      gradient.addColorStop(0.75, "#16c784");
+      gradient.addColorStop(1, "#16c784");
+      return gradient;
+    };
+
+    const getFgiBgGradient = (ctx: CanvasRenderingContext2D, chartArea: any) => {
+      const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+      gradient.addColorStop(0, "rgba(234, 57, 67, 0.04)");
+      gradient.addColorStop(0.25, "rgba(234, 57, 67, 0.04)");
+      gradient.addColorStop(0.25, "rgba(249, 115, 22, 0.04)");
+      gradient.addColorStop(0.45, "rgba(249, 115, 22, 0.04)");
+      gradient.addColorStop(0.45, "rgba(234, 179, 8, 0.04)");
+      gradient.addColorStop(0.55, "rgba(234, 179, 8, 0.04)");
+      gradient.addColorStop(0.55, "rgba(132, 204, 22, 0.04)");
+      gradient.addColorStop(0.75, "rgba(132, 204, 22, 0.04)");
+      gradient.addColorStop(0.75, "rgba(22, 199, 132, 0.04)");
+      gradient.addColorStop(1, "rgba(22, 199, 132, 0.04)");
+      return gradient;
+    };
+
+    const getDxyLineGradient = (ctx: CanvasRenderingContext2D, chartArea: any) => {
+      const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+      // DXY ranges 95 to 110 on Y axis.
+      // DXY <= 99 (offset 0.267) is Green (#16c784)
+      // DXY 99 to 103 (offset 0.533) is Lime (#84cc16)
+      // DXY 103 to 106 (offset 0.733) is Yellow (#eab308)
+      // DXY >= 106 is Red (#ea3943)
+      gradient.addColorStop(0, "#16c784");
+      gradient.addColorStop(0.267, "#16c784");
+      gradient.addColorStop(0.267, "#84cc16");
+      gradient.addColorStop(0.533, "#84cc16");
+      gradient.addColorStop(0.533, "#eab308");
+      gradient.addColorStop(0.733, "#eab308");
+      gradient.addColorStop(0.733, "#ea3943");
+      gradient.addColorStop(1, "#ea3943");
+      return gradient;
+    };
+
+    const getDxyBgGradient = (ctx: CanvasRenderingContext2D, chartArea: any) => {
+      const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+      gradient.addColorStop(0, "rgba(22, 199, 132, 0.04)");
+      gradient.addColorStop(0.267, "rgba(22, 199, 132, 0.04)");
+      gradient.addColorStop(0.267, "rgba(132, 204, 22, 0.04)");
+      gradient.addColorStop(0.533, "rgba(132, 204, 22, 0.04)");
+      gradient.addColorStop(0.533, "rgba(234, 179, 8, 0.04)");
+      gradient.addColorStop(0.733, "rgba(234, 179, 8, 0.04)");
+      gradient.addColorStop(0.733, "rgba(234, 57, 67, 0.04)");
+      gradient.addColorStop(1, "rgba(234, 57, 67, 0.04)");
+      return gradient;
+    };
+
+    // --- Double Trend Charts Initialization ---
+    const chartInstances: Record<string, any> = {};
+
+    function initDoubleChart(canvasId: string, optionsMap: any) {
+      const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
+      if (!canvas) return;
+
+      const historyDataStr1 = canvas.getAttribute("data-history-1");
+      const historyDataStr2 = canvas.getAttribute("data-history-2");
+      if (!historyDataStr1 || !historyDataStr2) return;
+
+      const hist1 = JSON.parse(historyDataStr1);
+      const hist2 = JSON.parse(historyDataStr2);
+
+      const label1 = canvas.getAttribute("data-label-1") || "Line 1";
+      const label2 = canvas.getAttribute("data-label-2") || "Line 2";
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      function getFilteredDataset(list: any[], days: number) {
+        return list.slice(-days);
+      }
+
+      const colors = getThemeColors();
+
+      const render = (days: number) => {
+        const d1 = getFilteredDataset(hist1, days);
+        const d2 = getFilteredDataset(hist2, days);
+
+        // Timestamps labels
+        const labels = d1.map((item: any) =>
+          new Date(item.timestamp).toLocaleDateString("zh-CN", {
+            month: "short",
+            day: "numeric",
+          })
+        );
+
+        const v1 = d1.map((item: any) => {
+          if (item.value !== undefined) return item.value;
+          if (item.bullish !== undefined) return item.bullish;
+          return item;
+        });
+        
+        const v2 = d2.map((item: any) => {
+          if (item.value !== undefined) return item.value;
+          if (item.bullish !== undefined) return item.bullish;
+          return item;
+        });
+
+        if (chartInstances[canvasId]) {
+          chartInstances[canvasId].destroy();
+        }
+
+        chartInstances[canvasId] = new window.Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: label1,
+                data: v1,
+                yAxisID: "y",
+                borderColor: function (context: any) {
+                  const chart = context.chart;
+                  const { ctx: chartCtx, chartArea } = chart;
+                  if (!chartArea) return "#f59e0b";
+                  if (canvasId === "dxy-us10y-chart") {
+                    return getDxyLineGradient(chartCtx, chartArea);
+                  }
+                  return getFgiLineGradient(chartCtx, chartArea);
+                },
+                backgroundColor: function (context: any) {
+                  const chart = context.chart;
+                  const { ctx: chartCtx, chartArea } = chart;
+                  if (!chartArea) return "rgba(245, 158, 11, 0.04)";
+                  if (canvasId === "dxy-us10y-chart") {
+                    return getDxyBgGradient(chartCtx, chartArea);
+                  }
+                  return getFgiBgGradient(chartCtx, chartArea);
+                },
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                fill: true,
+                tension: 0.15,
+              },
+              {
+                label: label2,
+                data: v2,
+                yAxisID: "y1",
+                borderColor: "#3b82f6",
+                borderWidth: 1.8,
+                borderDash: [4, 4],
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                fill: false,
+                tension: 0.15,
+              }
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            scales: {
+              y: {
+                type: "linear",
+                display: true,
+                position: "left",
+                min: optionsMap.yMin ?? 0,
+                max: optionsMap.yMax ?? 100,
+                ticks: {
+                  color: colors.textColor,
+                  font: { size: 9 },
+                },
+                grid: {
+                  color: colors.gridColor,
+                }
+              },
+              y1: {
+                type: "linear",
+                display: true,
+                position: "right",
+                min: optionsMap.y1Min ?? 0,
+                max: optionsMap.y1Max ?? 100,
+                ticks: {
+                  color: "#3b82f6",
+                  font: { size: 9 },
+                },
+                grid: {
+                  drawOnChartArea: false, // Don't overlay grid lines
+                }
+              },
+              x: {
+                grid: { display: false },
+                ticks: {
+                  maxRotation: 0,
+                  autoSkip: true,
+                  maxTicksLimit: 6,
+                  color: colors.textColor,
+                  font: { size: 9 },
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                display: true,
+                labels: {
+                  color: colors.textColor,
+                  font: { size: 9 },
+                  boxWidth: 20
+                }
+              },
+              tooltip: {
+                backgroundColor: "rgba(10, 10, 20, 0.95)",
+                titleColor: "#fff",
+                bodyColor: "#fff",
+                borderColor: "rgba(255,255,255,0.1)",
+                borderWidth: 1,
+              }
+            }
+          }
+        });
+      };
+
+      render(30);
+      (canvas as any)._updateChartRange = render;
+    }
+
+    // Init the 3 global macro double-line charts
+    initDoubleChart("cnn-vix-chart", { yMin: 0, yMax: 100, y1Min: 10, y1Max: 50 });
+    initDoubleChart("aaii-naaim-chart", { yMin: 0, yMax: 100, y1Min: 0, y1Max: 120 });
+    initDoubleChart("dxy-us10y-chart", { yMin: 95, yMax: 110, y1Min: 2.0, y1Max: 6.0 });
+
+    // Range buttons click logic
+    const tabContainers = document.querySelectorAll(".gt-chart-tabs[data-target]");
+    tabContainers.forEach((container) => {
+      const target = container.getAttribute("data-target");
+      const canvas = document.getElementById(`${target}-chart`) as any;
+      if (!canvas) return;
+
+      const buttons = container.querySelectorAll(".gt-tab-btn");
+      buttons.forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          buttons.forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const range = parseInt(btn.getAttribute("data-range") || "30", 10);
+          if (canvas._updateChartRange) {
+            canvas._updateChartRange(range);
+          }
+        });
+      });
+    });
+
+    // Theme toggler
+    const themeBtns = document.querySelectorAll("[data-theme-val]");
+    function setTheme(theme: string) {
+      document.documentElement.setAttribute("data-theme", theme);
+      themeBtns.forEach((btn) => {
+        if (btn.getAttribute("data-theme-val") === theme) {
+          btn.classList.add("gt-active");
+        } else {
+          btn.classList.remove("gt-active");
+        }
+      });
+      try {
+        localStorage.setItem('gt-theme-v2', theme);
+      } catch (err) {}
+
+      // Update Chart.js themes dynamically
+      const colors = getThemeColors();
+      Object.values(chartInstances).forEach((chart: any) => {
+        if (chart?.options?.scales) {
+          chart.options.scales.y.grid.color = colors.gridColor;
+          chart.options.scales.y.ticks.color = colors.textColor;
+          chart.options.scales.x.ticks.color = colors.textColor;
+          if (chart.options.plugins?.legend?.labels) {
+            chart.options.plugins.legend.labels.color = colors.textColor;
+          }
+          chart.update();
+        }
+      });
+    }
+
+    setTheme(savedTheme);
+    themeBtns.forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const val = btn.getAttribute("data-theme-val");
+        if (val) setTheme(val);
+      });
+    });
+
+    // --- Grid Layout Engine (Separate for Global Panel: gt-layout-grid-global-v1) ---
+    const container = document.querySelector(".gt-board") as HTMLElement | null;
+    if (!container) return;
+
+    const defaultLayout = {
+      "vix-index": { col: 1, row: 1, w: 1, h: 1 },
+      "aaii-index": { col: 2, row: 1, w: 1, h: 1 },
+      "naaim-index": { col: 3, row: 1, w: 1, h: 1 },
+      "pcr-index": { col: 4, row: 1, w: 1, h: 1 },
+      "dxy-index": { col: 5, row: 1, w: 1, h: 1 },
+      "us10y-index": { col: 6, row: 1, w: 1, h: 1 },
+      "cnn-vix-trend": { col: 1, row: 2, w: 6, h: 2 },
+      "aaii-naaim-trend": { col: 1, row: 4, w: 6, h: 2 },
+      "dxy-us10y-trend": { col: 1, row: 6, w: 6, h: 2 },
+      nav: { col: 1, row: 8, w: 6, h: 1 },
+    };
+
+    let layout = {} as any;
+    try {
+      const saved = localStorage.getItem("gt-layout-grid-global-v4");
+      if (saved) {
+        layout = JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error("Failed to load global grid layout:", e);
+    }
+
+    // Merge missing layout config keys
+    Object.keys(defaultLayout).forEach((key) => {
+      if (!layout[key] || typeof layout[key].col !== "number") {
+        layout[key] = { ...(defaultLayout as any)[key] };
+      }
+    });
+
+    const blocks = container.querySelectorAll(".gt-block");
+
+    function applyLayout() {
+      blocks.forEach((block) => {
+        const id = block.getAttribute("data-id");
+        if (id && layout[id]) {
+          const cfg = layout[id];
+          const el = block as HTMLElement;
+          el.style.gridColumn = `${cfg.col} / span ${cfg.w}`;
+          el.style.gridRow = `${cfg.row} / span ${cfg.h}`;
+        }
+      });
+    }
+
+    function updateRowHeight() {
+      const width = container!.getBoundingClientRect().width;
+      const colWidth = width / 6;
+      container!.style.setProperty("--row-height", `${colWidth.toFixed(1)}px`);
+    }
+
+    applyLayout();
+    updateRowHeight();
+
+    window.addEventListener("resize", () => {
+      updateRowHeight();
+      Object.values(chartInstances).forEach((chart: any) => chart.resize());
+    });
+
+    // Reset button listener
+    const resetBtn = document.getElementById("gt-reset-layout");
+    if (resetBtn) {
+      resetBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        try {
+          localStorage.removeItem("gt-layout-grid-global-v4");
+        } catch (err) {}
+        layout = JSON.parse(JSON.stringify(defaultLayout));
+        applyLayout();
+        updateRowHeight();
+      });
+    }
+
+    // Drag / Resize mechanics
+    const ghost = document.createElement("div");
+    ghost.className = "gt-grid-ghost";
+    ghost.style.display = "none";
+    container.appendChild(ghost);
+
+    let activeId: string | null = null;
+    let isDragging = false;
+    let isResizing = false;
+
+    let initialMouseX = 0;
+    let initialMouseY = 0;
+    let initialCol = 1;
+    let initialRow = 1;
+    let initialWSpan = 1;
+    let initialHSpan = 1;
+    let initialWidth = 0;
+    let initialHeight = 0;
+
+    let blockRect: DOMRect | null = null;
+    let containerRect: DOMRect | null = null;
+    let currentBlockEl: HTMLElement | null = null;
+
+    container.addEventListener("mousedown", (e) => {
+      if ((e.target as HTMLElement).closest("a") || (e.target as HTMLElement).closest("button")) {
+        return;
+      }
+
+      const handle = (e.target as HTMLElement).closest(".gt-drag-handle");
+      const resize = (e.target as HTMLElement).closest(".gt-resize-handle");
+
+      if (handle) {
+        e.preventDefault();
+        currentBlockEl = handle.closest(".gt-block") as HTMLElement;
+        if (!currentBlockEl) return;
+
+        activeId = currentBlockEl.getAttribute("data-id");
+        isDragging = true;
+
+        containerRect = container.getBoundingClientRect();
+        blockRect = currentBlockEl.getBoundingClientRect();
+
+        initialMouseX = e.clientX;
+        initialMouseY = e.clientY;
+
+        const cfg = layout[activeId!];
+        initialCol = cfg.col;
+        initialRow = cfg.row;
+        initialWSpan = cfg.w;
+        initialHSpan = cfg.h;
+
+        currentBlockEl.classList.add("gt-dragging");
+
+        ghost.style.gridColumn = currentBlockEl.style.gridColumn;
+        ghost.style.gridRow = currentBlockEl.style.gridRow;
+        ghost.style.display = "block";
+      } else if (resize) {
+        e.preventDefault();
+        currentBlockEl = resize.closest(".gt-block") as HTMLElement;
+        if (!currentBlockEl) return;
+
+        activeId = currentBlockEl.getAttribute("data-id");
+        isResizing = true;
+
+        containerRect = container.getBoundingClientRect();
+        blockRect = currentBlockEl.getBoundingClientRect();
+
+        initialMouseX = e.clientX;
+        initialMouseY = e.clientY;
+
+        initialWidth = blockRect.width;
+        initialHeight = blockRect.height;
+
+        const cfg = layout[activeId!];
+        initialCol = cfg.col;
+        initialRow = cfg.row;
+        initialWSpan = cfg.w;
+        initialHSpan = cfg.h;
+
+        currentBlockEl.classList.add("gt-resizing");
+
+        ghost.style.gridColumn = currentBlockEl.style.gridColumn;
+        ghost.style.gridRow = currentBlockEl.style.gridRow;
+        ghost.style.display = "block";
+      }
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!activeId || !currentBlockEl) return;
+
+      containerRect = container.getBoundingClientRect();
+      const colWidth = containerRect.width / 6;
+
+      if (isDragging) {
+        const deltaX = e.clientX - initialMouseX;
+        const deltaY = e.clientY - initialMouseY;
+
+        const mouseRelativeX = e.clientX - containerRect.left;
+        const mouseRelativeY = e.clientY - containerRect.top;
+
+        let targetCol = Math.floor(mouseRelativeX / colWidth) + 1;
+        let targetRow = Math.floor(mouseRelativeY / colWidth) + 1;
+
+        targetCol = Math.max(1, Math.min(6 - initialWSpan + 1, targetCol));
+        targetRow = Math.max(1, targetRow);
+
+        ghost.style.gridColumn = `${targetCol} / span ${initialWSpan}`;
+        ghost.style.gridRow = `${targetRow} / span ${initialHSpan}`;
+
+        currentBlockEl.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+        currentBlockEl.style.zIndex = "100";
+        currentBlockEl.style.pointerEvents = "none";
+      } else if (isResizing) {
+        const deltaX = e.clientX - initialMouseX;
+        const deltaY = e.clientY - initialMouseY;
+
+        const newWidth = initialWidth + deltaX;
+        const newHeight = initialHeight + deltaY;
+
+        let targetWSpan = Math.round(newWidth / colWidth);
+        targetWSpan = Math.max(1, Math.min(6 - initialCol + 1, targetWSpan));
+
+        let targetHSpan = Math.round(newHeight / colWidth);
+        targetHSpan = Math.max(1, targetHSpan);
+
+        ghost.style.gridColumn = `${initialCol} / span ${targetWSpan}`;
+        ghost.style.gridRow = `${initialRow} / span ${targetHSpan}`;
+      }
+    });
+
+    document.addEventListener("mouseup", () => {
+      if (!activeId || !currentBlockEl) return;
+
+      if (isDragging) {
+        currentBlockEl.classList.remove("gt-dragging");
+        currentBlockEl.style.transform = "";
+        currentBlockEl.style.zIndex = "";
+        currentBlockEl.style.pointerEvents = "";
+
+        const colParts = ghost.style.gridColumn.split("/");
+        const rowParts = ghost.style.gridRow.split("/");
+
+        if (colParts.length && rowParts.length) {
+          const finalCol = parseInt(colParts[0]);
+          const finalRow = parseInt(rowParts[0]);
+
+          if (!isNaN(finalCol) && !isNaN(finalRow)) {
+            layout[activeId!].col = finalCol;
+            layout[activeId!].row = finalRow;
+          }
+        }
+      } else if (isResizing) {
+        currentBlockEl.classList.remove("gt-resizing");
+
+        const colParts = ghost.style.gridColumn.split("span");
+        const rowParts = ghost.style.gridRow.split("span");
+
+        if (colParts.length > 1 && rowParts.length > 1) {
+          const finalWSpan = parseInt(colParts[1]);
+          const finalHSpan = parseInt(rowParts[1]);
+
+          if (!isNaN(finalWSpan) && !isNaN(finalHSpan)) {
+            layout[activeId!].w = finalWSpan;
+            layout[activeId!].h = finalHSpan;
+          }
+        }
+      }
+
+      try {
+        localStorage.setItem("gt-layout-grid-global-v4", JSON.stringify(layout));
+        console.log("Current Layout JSON (Global):", JSON.stringify(layout));
+      } catch (err) {}
+
+      applyLayout();
+      updateRowHeight();
+
+      Object.values(chartInstances).forEach((chart: any) => chart.resize());
+
+      ghost.style.display = "none";
+      activeId = null;
+      isDragging = false;
+      isResizing = false;
+      currentBlockEl = null;
+    });
+  });
+</script>
+
+<style is:global>
+  /* ── Reset & CSS Custom Theme Variables ── */
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    /* Theme Option 1: Cyber Dark (Default) */
+    --bg-color: #06060f;
+    --text-primary: #e2e8f0;
+    --text-secondary: rgba(226, 232, 240, 0.45);
+    --orbs-opacity: 0.15;
+    --board-bg: rgba(255, 255, 255, 0.03);
+    --block-bg: rgba(10, 10, 20, 0.95);
+    --border-color: rgba(255, 255, 255, 0.08);
+    --title-gold: #ffd700;
+    
+    --badge-bg: rgba(99, 179, 237, 0.1);
+    --badge-border: rgba(99, 179, 237, 0.25);
+    --badge-color: #63b3ed;
+
+    --pill-bg: rgba(255, 255, 255, 0.03);
+    --pill-border: rgba(255, 255, 255, 0.06);
+
+    --btn-bg: rgba(10, 10, 20, 0.95);
+    --btn-sec-text: rgba(226, 232, 240, 0.7);
+    --btn-sec-hover: rgba(255, 255, 255, 0.05);
+    --btn-cmc-text: #63b3ed;
+    --btn-cmc-hover: rgba(99, 179, 237, 0.12);
+    --btn-alt-text: #f59e0b;
+    --btn-alt-hover: rgba(245, 158, 11, 0.08);
+    --btn-reset-text: rgba(255, 255, 255, 0.45);
+    --btn-reset-hover: rgba(239, 68, 68, 0.1);
+
+    --chart-grid-line: rgba(255, 255, 255, 0.07);
+  }
+
+  html[data-theme="light"] {
+    /* Theme Option 2: Clean Light Mode */
+    --bg-color: #f5f6fa;
+    --text-primary: #1e293b;
+    --text-secondary: rgba(30, 41, 59, 0.6);
+    --orbs-opacity: 0.05;
+    --board-bg: rgba(0, 0, 0, 0.02);
+    --block-bg: #ffffff;
+    --border-color: rgba(0, 0, 0, 0.09);
+    --title-gold: #b27d00;
+
+    --badge-bg: rgba(49, 130, 206, 0.08);
+    --badge-border: rgba(49, 130, 206, 0.2);
+    --badge-color: #2b6cb0;
+
+    --pill-bg: rgba(0, 0, 0, 0.02);
+    --pill-border: rgba(0, 0, 0, 0.05);
+
+    --btn-bg: #ffffff;
+    --btn-sec-text: #475569;
+    --btn-sec-hover: rgba(0, 0, 0, 0.03);
+    --btn-cmc-text: #2b6cb0;
+    --btn-cmc-hover: rgba(49, 130, 206, 0.08);
+    --btn-alt-text: #dd6b20;
+    --btn-alt-hover: rgba(221, 107, 32, 0.06);
+    --btn-reset-text: #64748b;
+    --btn-reset-hover: rgba(239, 68, 68, 0.08);
+
+    --chart-grid-line: rgba(0, 0, 0, 0.07);
+  }
+
+  html[data-theme="paper"] {
+    /* Theme Option 3: Eye-Care Deep Ocean Teal */
+    --bg-color: #003957;
+    --text-primary: #e2e8f0;
+    --text-secondary: rgba(226, 232, 240, 0.5);
+    --orbs-opacity: 0.15;
+    --board-bg: rgba(255, 255, 255, 0.04);
+    --block-bg: #00283e;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --title-gold: #ffd700;
+
+    --badge-bg: rgba(255, 215, 0, 0.1);
+    --badge-border: rgba(255, 215, 0, 0.25);
+    --badge-color: #ffd700;
+
+    --pill-bg: rgba(255, 255, 255, 0.04);
+    --pill-border: rgba(255, 255, 255, 0.08);
+
+    --btn-bg: #00283e;
+    --btn-sec-text: rgba(226, 232, 240, 0.8);
+    --btn-sec-hover: rgba(255, 255, 255, 0.06);
+    --btn-cmc-text: #63b3ed;
+    --btn-cmc-hover: rgba(99, 179, 237, 0.12);
+    --btn-alt-text: #f59e0b;
+    --btn-alt-hover: rgba(245, 158, 11, 0.08);
+    --btn-reset-text: rgba(226, 232, 240, 0.5);
+    --btn-reset-hover: rgba(239, 68, 68, 0.15);
+
+    --chart-grid-line: rgba(255, 255, 255, 0.08);
+  }
+
+  html {
+    font-size: 17px;
+    background: var(--bg-color);
+    color: var(--text-primary);
+    transition: background 0.3s, color 0.3s;
+  }
+
+  body {
+    min-height: 100vh;
+    background: var(--bg-color);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    color: var(--text-primary);
+    overflow-x: hidden;
+    line-height: 1.5;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  .gt-wrapper {
+    min-height: 100vh;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    padding: 2rem 2rem 4rem;
+  }
+
+  /* Theme Selector */
+  .gt-theme-selector {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    display: flex;
+    gap: 0.4rem;
+    background: var(--block-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    padding: 0.3rem;
+    z-index: 1000;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(10px);
+    transition: background 0.3s, border-color 0.3s;
+  }
+
+  .gt-theme-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    outline: none;
+  }
+  .gt-theme-btn:hover { background: var(--btn-sec-hover); }
+  .gt-theme-btn.gt-active {
+    background: var(--text-primary);
+    color: var(--bg-color);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+
+  /* Orbs */
+  .gt-orbs {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+    opacity: var(--orbs-opacity);
+    transition: opacity 0.3s;
+  }
+  .gt-orb {
+    position: absolute; border-radius: 50%;
+    filter: blur(90px);
+    animation: gt-float 12s ease-in-out infinite;
+  }
+  .gt-orb1 { width:520px; height:520px; background:radial-gradient(circle,#f59e0b,#ef4444); top:-12%; left:-8%; }
+  .gt-orb2 { width:420px; height:420px; background:radial-gradient(circle,#8b5cf6,#3b82f6); bottom:-8%; right:-6%; animation-delay:-4s; }
+  .gt-orb3 { width:300px; height:300px; background:radial-gradient(circle,#10b981,#06b6d4); top:45%; left:58%; animation-delay:-7s; }
+
+  @keyframes gt-float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(15px, -25px) scale(1.03); }
+    66% { transform: translate(-12px, 15px) scale(0.98); }
+  }
+
+  .gt-container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 1600px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .gt-header {
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .gt-badge {
+    display: inline-block;
+    padding: 0.3rem 1rem;
+    background: var(--badge-bg);
+    border: 1px solid var(--badge-border);
+    border-radius: 999px;
+    font-size: 0.82rem;
+    color: var(--badge-color);
+    letter-spacing: 0.06em;
+    margin-bottom: 0.7rem;
+    transition: all 0.3s;
+  }
+
+  .gt-title {
+    font-size: clamp(2.4rem, 6vw, 3.6rem);
+    font-weight: 800;
+    background: linear-gradient(135deg, #ffd700 0%, #f59e0b 40%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 0.4rem;
+  }
+
+  .gt-sub {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+    transition: color 0.3s;
+  }
+
+  /* Grid Board (6 Columns) */
+  .gt-board {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-auto-rows: var(--row-height, 220px);
+    gap: 1px;
+    background: var(--border-color);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    position: relative;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+    transition: background 0.3s, border-color 0.3s;
+  }
+
+  .gt-grid-ghost {
+    background: rgba(59, 130, 246, 0.15);
+    border: 2px dashed #3b82f6;
+    border-radius: 12px;
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  .gt-block {
+    background: var(--block-bg);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: background 0.3s, box-shadow 0.3s, transform 0.3s;
+    overflow: hidden;
+    padding: 1.5rem;
+  }
+
+  .gt-block.gt-dragging {
+    opacity: 0.7;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+    transition: none !important;
+  }
+  .gt-block.gt-resizing {
+    opacity: 0.8;
+    transition: none !important;
+  }
+
+  .gt-drag-handle {
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    padding: 0.28rem;
+    border-radius: 6px;
+    transition: background 0.2s, color 0.2s, opacity 0.2s;
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .gt-drag-handle:hover {
+    background: var(--btn-sec-hover);
+    color: var(--text-primary);
+    opacity: 1;
+  }
+  .gt-drag-handle:active { cursor: grabbing; }
+
+  .gt-resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 22px;
+    height: 22px;
+    cursor: se-resize;
+    background: linear-gradient(135deg, transparent 50%, var(--text-secondary) 50%);
+    opacity: 0.3;
+    border-radius: 0 0 10px 0;
+    transition: background 0.2s, opacity 0.2s;
+    z-index: 15;
+  }
+  .gt-resize-handle:hover { opacity: 0.85; }
+
+  /* Default CSS Positioning Fallbacks for SSR */
+  [data-id="cnn-index"] { grid-column: 1 / span 2; grid-row: 1 / span 2; }
+  [data-id="vix-index"] { grid-column: 3 / span 2; grid-row: 1 / span 2; }
+  [data-id="btc-index"] { grid-column: 5 / span 2; grid-row: 1 / span 2; }
+  
+  [data-id="aaii-index"]  { grid-column: 1 / span 2; grid-row: 3 / span 2; }
+  [data-id="naaim-index"] { grid-column: 3 / span 2; grid-row: 3 / span 2; }
+  [data-id="pcr-index"]   { grid-column: 5 / span 2; grid-row: 3 / span 2; }
+
+  [data-id="dxy-index"]   { grid-column: 1 / span 2; grid-row: 5 / span 2; }
+  [data-id="us10y-index"] { grid-column: 3 / span 2; grid-row: 5 / span 2; }
+  [data-id="gold-index"]  { grid-column: 5 / span 2; grid-row: 5 / span 2; }
+
+  [data-id="cnn-vix-trend"]     { grid-column: 1 / span 6; grid-row: 7 / span 2; }
+  [data-id="aaii-naaim-trend"]  { grid-column: 1 / span 6; grid-row: 9 / span 2; }
+  [data-id="dxy-us10y-trend"]   { grid-column: 1 / span 6; grid-row: 11 / span 2; }
+  [data-id="gold-btc-trend"]    { grid-column: 1 / span 6; grid-row: 13 / span 2; }
+  [data-id="nav"]               { grid-column: 1 / span 6; grid-row: 15 / span 1; }
+
+  .gt-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .gt-panel-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--title-gold);
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    transition: color 0.3s;
+  }
+
+  /* Color Classes for titles */
+  .text-stock { color: #52be80; }
+  .text-vix { color: #eb5757; }
+  .text-crypto { color: #3b82f6; }
+  .text-aaii { color: #f2c94c; }
+  .text-naaim { color: #9b51e0; }
+  .text-pcr { color: #56ccf2; }
+  .text-dxy { color: #27ae60; }
+  .text-rate { color: #e0e0e0; }
+  .text-gold { color: #ffd700; }
+  .text-red { color: #ea3943; }
+
+  .gt-source {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-left: auto;
+    transition: color 0.3s;
+  }
+
+  .gt-widget-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* Gauge box layout */
+  .gt-gauge-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin: auto 0;
+  }
+
+  .gt-gauge {
+    width: 100%;
+    max-width: 190px;
+    display: block;
+    margin: 0 auto;
+  }
+
+  .gt-gauge-desc {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: 0.2rem;
+  }
+
+  /* AAII Layout */
+  .gt-aaii-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    width: 100%;
+  }
+
+  .gt-aaii-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .gt-aaii-bar-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .aaii-lbl {
+    width: 75px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .aaii-track {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .aaii-fill {
+    height: 100%;
+    border-radius: 4px;
+  }
+
+  .fill-bull { background: #16c784; }
+  .fill-bear { background: #ea3943; }
+  .fill-neut { background: #eab308; }
+
+  .aaii-pct {
+    width: 45px;
+    text-align: right;
+    font-weight: 700;
+  }
+
+  .gt-aaii-verdict {
+    margin-top: 0.2rem;
+    text-align: center;
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border-color);
+    padding-top: 0.5rem;
+  }
+
+  .spread-val {
+    color: var(--text-secondary);
+    margin-bottom: 0.32rem;
+  }
+
+  .aaii-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .bg-danger { background: rgba(234, 57, 67, 0.15); color: #ea3943; border: 1px solid rgba(234, 57, 67, 0.25); }
+  .bg-success { background: rgba(22, 199, 132, 0.15); color: #16c784; border: 1px solid rgba(22, 199, 132, 0.25); }
+  .bg-normal { background: rgba(255, 255, 255, 0.05); color: var(--text-secondary); }
+
+  /* Chart Styles */
+  .chart-body {
+    flex: 1;
+    min-height: 0;
+    padding: 0.5rem 0 0;
+  }
+
+  .chart-container-el {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Range Selector Tabs */
+  .gt-chart-tabs {
+    display: flex;
+    background: var(--pill-bg);
+    border: 1px solid var(--pill-border);
+    border-radius: 6px;
+    padding: 0.15rem;
+    margin-left: auto;
+  }
+
+  .gt-tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 0.2rem 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .gt-tab-btn:hover { color: var(--text-primary); background: var(--btn-sec-hover); }
+  .gt-tab-btn.active { color: var(--bg-color); background: var(--text-primary); }
+
+  /* Navigation Block */
+  .gt-nav-block {
+    padding: 1.2rem;
+  }
+
+  .gt-nav {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 0.2rem;
+  }
+
+  .gt-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1.1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+    background: var(--btn-bg);
+    border: 1px solid var(--border-color);
+  }
+
+  .gt-btn-sec { color: var(--btn-sec-text); }
+  .gt-btn-sec:hover { background: var(--btn-sec-hover); border-color: var(--text-primary); }
+
+  .gt-btn-fgi { color: #ffd700; border-color: rgba(255,215,0,0.2); }
+  .gt-btn-fgi:hover { background: rgba(255,215,0,0.08); border-color: #ffd700; }
+
+  .gt-btn-cmc { color: var(--btn-cmc-text); border-color: var(--badge-border); }
+  .gt-btn-cmc:hover { background: var(--btn-cmc-hover); border-color: var(--btn-cmc-text); }
+
+  .gt-btn-alt { color: var(--btn-alt-text); border-color: rgba(245,158,11,0.2); }
+  .gt-btn-alt:hover { background: var(--btn-alt-hover); border-color: var(--btn-alt-text); }
+
+  .gt-btn-reset { color: var(--btn-reset-text); border-color: rgba(239, 68, 68, 0.15); }
+  .gt-btn-reset:hover { background: var(--btn-reset-hover); color: #ef4444; border-color: #ef4444; }
+
+  @media (max-width: 1024px) {
+    .gt-board {
+      grid-template-columns: repeat(3, 1fr);
+      grid-auto-rows: minmax(180px, auto);
+    }
+    /* Expand widgets to occupy full row in mobile columns */
+    [data-id] {
+      grid-column: span 3 !important;
+      grid-row: auto !important;
+    }
+  }
+</style>

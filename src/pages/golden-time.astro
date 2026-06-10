@@ -272,7 +272,7 @@ const nzones = [
       <!-- 标题 -->
       <div class="gt-header">
         <div class="gt-badge">📊 全市场情绪面板</div>
-        <h1 class="gt-title">金时纪</h1>
+        <h1 class="gt-title">数字与黄金</h1>
         <p class="gt-sub">实时洞察股票、加密与黄金市场的贪婪与恐惧情绪</p>
       </div>
 
@@ -1477,6 +1477,31 @@ const nzones = [
           <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
         </div>
 
+        <!-- ==================== BLOCK 9.5: Gold & BTC Trend ==================== -->
+        <div class="gt-block gt-double-trend" data-id="gold-btc-trend">
+          <div class="gt-panel-head">
+            <div class="gt-drag-handle" title="按住拖拽调整位置">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <circle cx="9" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="19" r="2"/>
+                <circle cx="15" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>
+              </svg>
+            </div>
+            <h2 class="gt-panel-title">避险资产与数字黄金走势 (Gold &amp; Bitcoin)</h2>
+            <div class="gt-chart-tabs" data-target="gold-btc">
+              <button class="gt-tab-btn" data-range="7">7天</button>
+              <button class="gt-tab-btn active" data-range="30">30天</button>
+              <button class="gt-tab-btn" data-range="180">半年</button>
+              <button class="gt-tab-btn" data-range="365">1年</button>
+            </div>
+          </div>
+          <div class="gt-widget-body chart-body">
+            <div class="chart-container-el">
+              <canvas id="gold-btc-chart" data-history-1={JSON.stringify(fgiData?.gold.historicalData || [])} data-history-2={JSON.stringify(fgiData?.crypto.historicalData || [])} data-label-1="Gold Sentiment" data-label-2="BTC Fear & Greed"></canvas>
+            </div>
+          </div>
+          <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
+        </div>
+
         <!-- ==================== BLOCK 10: 快捷导航与操作 ==================== -->
         <div class="gt-block gt-nav-block" data-id="nav">
           <div class="gt-panel-head">
@@ -1503,6 +1528,7 @@ const nzones = [
           </div>
           <div class="gt-nav">
             <a href="/" class="gt-btn gt-btn-sec">← 返回主页</a>
+            <a href="/global-time" class="gt-btn gt-btn-sec" style="color: #ffd700; border-color: rgba(255, 215, 0, 0.25);">→ 美丽与漂亮 (多市场)</a>
             <a
               href="https://coinmarketcap.com/charts/fear-and-greed-index/"
               target="_blank"
@@ -1701,14 +1727,14 @@ const nzones = [
     const getLineGradient = (ctx: CanvasRenderingContext2D, chartArea: any) => {
       const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
       gradient.addColorStop(0, "#ea3943");
-      gradient.addColorStop(0.2, "#ea3943");
-      gradient.addColorStop(0.2, "#f97316");
-      gradient.addColorStop(0.4, "#f97316");
-      gradient.addColorStop(0.4, "#eab308");
-      gradient.addColorStop(0.6, "#eab308");
-      gradient.addColorStop(0.6, "#84cc16");
-      gradient.addColorStop(0.8, "#84cc16");
-      gradient.addColorStop(0.8, "#16c784");
+      gradient.addColorStop(0.25, "#ea3943");
+      gradient.addColorStop(0.25, "#f97316");
+      gradient.addColorStop(0.45, "#f97316");
+      gradient.addColorStop(0.45, "#eab308");
+      gradient.addColorStop(0.55, "#eab308");
+      gradient.addColorStop(0.55, "#84cc16");
+      gradient.addColorStop(0.75, "#84cc16");
+      gradient.addColorStop(0.75, "#16c784");
       gradient.addColorStop(1, "#16c784");
       return gradient;
     };
@@ -1716,14 +1742,14 @@ const nzones = [
     const getBgGradient = (ctx: CanvasRenderingContext2D, chartArea: any) => {
       const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
       gradient.addColorStop(0, "rgba(234, 57, 67, 0.04)");
-      gradient.addColorStop(0.2, "rgba(234, 57, 67, 0.04)");
-      gradient.addColorStop(0.2, "rgba(249, 115, 22, 0.04)");
-      gradient.addColorStop(0.4, "rgba(249, 115, 22, 0.04)");
-      gradient.addColorStop(0.4, "rgba(234, 179, 8, 0.04)");
-      gradient.addColorStop(0.6, "rgba(234, 179, 8, 0.04)");
-      gradient.addColorStop(0.6, "rgba(132, 204, 22, 0.04)");
-      gradient.addColorStop(0.8, "rgba(132, 204, 22, 0.04)");
-      gradient.addColorStop(0.8, "rgba(22, 199, 132, 0.04)");
+      gradient.addColorStop(0.25, "rgba(234, 57, 67, 0.04)");
+      gradient.addColorStop(0.25, "rgba(249, 115, 22, 0.04)");
+      gradient.addColorStop(0.45, "rgba(249, 115, 22, 0.04)");
+      gradient.addColorStop(0.45, "rgba(234, 179, 8, 0.04)");
+      gradient.addColorStop(0.55, "rgba(234, 179, 8, 0.04)");
+      gradient.addColorStop(0.55, "rgba(132, 204, 22, 0.04)");
+      gradient.addColorStop(0.75, "rgba(132, 204, 22, 0.04)");
+      gradient.addColorStop(0.75, "rgba(22, 199, 132, 0.04)");
       gradient.addColorStop(1, "rgba(22, 199, 132, 0.04)");
       return gradient;
     };
@@ -1904,9 +1930,166 @@ const nzones = [
       (canvas as any)._updateChartRange = render;
     }
 
+    function initDoubleChart(canvasId: string, optionsMap: any) {
+      const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
+      if (!canvas) return;
+
+      const historyDataStr1 = canvas.getAttribute("data-history-1");
+      const historyDataStr2 = canvas.getAttribute("data-history-2");
+      if (!historyDataStr1 || !historyDataStr2) return;
+
+      const hist1 = JSON.parse(historyDataStr1);
+      const hist2 = JSON.parse(historyDataStr2);
+
+      const label1 = canvas.getAttribute("data-label-1") || "Line 1";
+      const label2 = canvas.getAttribute("data-label-2") || "Line 2";
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      function getFilteredDataset(list: any[], days: string | number) {
+        if (days === "all" || !days) return [...list];
+        const count = Number(days);
+        return list.slice(-count);
+      }
+
+      const colors = getChartThemeColors();
+
+      const render = (days: string | number) => {
+        const d1 = getFilteredDataset(hist1, days);
+        const d2 = getFilteredDataset(hist2, days);
+
+        const labels = d1.map((item: any) =>
+          new Date(item.timestamp).toLocaleDateString("zh-CN", {
+            month: "short",
+            day: "numeric",
+          })
+        );
+
+        const v1 = d1.map((item: any) => item.value);
+        const v2 = d2.map((item: any) => item.value);
+
+        if (chartInstances[canvasId]) {
+          chartInstances[canvasId].destroy();
+        }
+
+        chartInstances[canvasId] = new window.Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: label1,
+                data: v1,
+                yAxisID: "y",
+                borderColor: function (context: any) {
+                  const chart = context.chart;
+                  const { ctx: chartCtx, chartArea } = chart;
+                  if (!chartArea) return "#ffd700";
+                  return getLineGradient(chartCtx, chartArea);
+                },
+                backgroundColor: function (context: any) {
+                  const chart = context.chart;
+                  const { ctx: chartCtx, chartArea } = chart;
+                  if (!chartArea) return "rgba(255, 215, 0, 0.04)";
+                  return getBgGradient(chartCtx, chartArea);
+                },
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                fill: true,
+                tension: 0.15,
+              },
+              {
+                label: label2,
+                data: v2,
+                yAxisID: "y1",
+                borderColor: "#3b82f6",
+                borderWidth: 1.8,
+                borderDash: [4, 4],
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                fill: false,
+                tension: 0.15,
+              }
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            scales: {
+              y: {
+                type: "linear",
+                display: true,
+                position: "left",
+                min: optionsMap.yMin ?? 0,
+                max: optionsMap.yMax ?? 100,
+                ticks: {
+                  color: colors.textColor,
+                  font: { size: 9 },
+                },
+                grid: {
+                  color: colors.gridColor,
+                }
+              },
+              y1: {
+                type: "linear",
+                display: true,
+                position: "right",
+                min: optionsMap.y1Min ?? 0,
+                max: optionsMap.y1Max ?? 100,
+                ticks: {
+                  color: "#3b82f6",
+                  font: { size: 9 },
+                },
+                grid: {
+                  drawOnChartArea: false,
+                }
+              },
+              x: {
+                grid: { display: false },
+                ticks: {
+                  maxRotation: 0,
+                  autoSkip: true,
+                  maxTicksLimit: 6,
+                  color: colors.textColor,
+                  font: { size: 9 },
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                display: true,
+                labels: {
+                  color: colors.textColor,
+                  font: { size: 9 },
+                  boxWidth: 20
+                }
+              },
+              tooltip: {
+                backgroundColor: "rgba(10, 10, 20, 0.95)",
+                titleColor: "#fff",
+                bodyColor: "#fff",
+                borderColor: "rgba(255,255,255,0.1)",
+                borderWidth: 1,
+              }
+            }
+          }
+        });
+      };
+
+      render(30);
+      (canvas as any)._updateChartRange = render;
+    }
+
     initChart("crypto-chart");
     initChart("gold-chart");
     initChart("stock-chart");
+    initDoubleChart("gold-btc-chart", { yMin: 0, yMax: 100, y1Min: 0, y1Max: 100 });
 
     const tabContainers = document.querySelectorAll(
       ".gt-chart-tabs[data-target]",
@@ -1974,7 +2157,7 @@ const nzones = [
     const container = document.querySelector(".gt-board") as HTMLElement | null;
     if (!container) return;
 
-    // Default layout containing all 10 widgets
+    // Default layout containing all 11 widgets
     const defaultLayout = {
       altme: { col: 1, row: 1, w: 2, h: 2 },
       "cmc-gauge": { col: 3, row: 1, w: 4, h: 2 },
@@ -1985,12 +2168,13 @@ const nzones = [
       "crypto-trend": { col: 1, row: 7, w: 6, h: 2 },
       "gold-trend": { col: 1, row: 9, w: 6, h: 2 },
       "stock-trend": { col: 1, row: 11, w: 6, h: 2 },
-      nav: { col: 1, row: 13, w: 6, h: 1 },
+      "gold-btc-trend": { col: 1, row: 13, w: 6, h: 2 },
+      nav: { col: 1, row: 15, w: 6, h: 1 },
     };
 
     let layout = {} as any;
     try {
-      const saved = localStorage.getItem("gt-layout-grid-v10");
+      const saved = localStorage.getItem("gt-layout-grid-v11");
       if (saved) {
         layout = JSON.parse(saved);
       }
@@ -2037,7 +2221,7 @@ const nzones = [
       resetBtn.addEventListener("click", (e) => {
         e.preventDefault();
         try {
-          localStorage.removeItem("gt-layout-grid-v10");
+          localStorage.removeItem("gt-layout-grid-v11");
         } catch (err) {}
         layout = JSON.parse(JSON.stringify(defaultLayout));
         applyLayout();
@@ -2222,7 +2406,7 @@ const nzones = [
 
       // Save order
       try {
-        localStorage.setItem("gt-layout-grid-v10", JSON.stringify(layout));
+        localStorage.setItem("gt-layout-grid-v11", JSON.stringify(layout));
         console.log("Current Layout JSON:", JSON.stringify(layout));
       } catch (err) {}
 
@@ -3183,63 +3367,75 @@ const nzones = [
   }
 
   /* Navigation toolbar */
-  .gt-nav {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 1px;
-    background: var(--border-color);
-    flex: 1;
-    min-height: 0;
-    transition: background 0.3s;
+  .gt-nav-block {
+    padding: 1.2rem;
   }
-  .gt-btn {
+
+  .gt-nav {
     display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 0.2rem;
+  }
+
+  .gt-btn {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 1.1rem 1.5rem;
-    border: none;
-    font-size: 1rem;
-    font-weight: 600;
-    text-decoration: none;
-    background: var(--btn-bg);
-    transition: all 0.25s;
-    letter-spacing: 0.02em;
+    padding: 0.5rem 1.1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
     cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+    background: var(--btn-bg);
+    border: 1px solid var(--border-color);
   }
+
   .gt-btn-sec {
     color: var(--btn-sec-text);
   }
   .gt-btn-sec:hover {
     background: var(--btn-sec-hover);
-    color: var(--text-primary);
+    border-color: var(--text-primary);
   }
 
   .gt-btn-cmc {
     color: var(--btn-cmc-text);
+    border-color: var(--badge-border);
   }
   .gt-btn-cmc:hover {
     background: var(--btn-cmc-hover);
+    border-color: var(--btn-cmc-text);
   }
 
   .gt-btn-alt {
     color: var(--btn-alt-text);
+    border-color: rgba(245, 158, 11, 0.2);
   }
   .gt-btn-alt:hover {
     background: var(--btn-alt-hover);
+    border-color: var(--btn-alt-text);
   }
 
   .gt-btn-fgi {
-    color: var(--badge-color);
+    color: #ffd700;
+    border-color: rgba(255, 215, 0, 0.2);
   }
   .gt-btn-fgi:hover {
-    background: var(--badge-bg);
+    background: rgba(255, 215, 0, 0.08);
+    border-color: #ffd700;
   }
 
   .gt-btn-reset {
     color: var(--btn-reset-text);
+    border-color: rgba(239, 68, 68, 0.15);
   }
   .gt-btn-reset:hover {
     background: var(--btn-reset-hover);
+    border-color: #ef4444;
     color: #ef4444;
   }
 
