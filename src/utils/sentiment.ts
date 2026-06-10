@@ -232,12 +232,16 @@ export function generateChinaIndicatorData() {
   hs300PsHistory[hs300PsHistory.length - 1].value = 1.55;
   const currentHs300Ps = hs300PsHistory[hs300PsHistory.length - 1].value;
 
-  // 11. A-share FGI from feargreedindex.world: range 5-95, starts around 32.0
-  const aShareFgiHistory = generateRandomWalk(11000, 32.0, 5, 95, 2.0);
+  // 11. A-share FGI from feargreedindex.world: range 5-95, starts around 42.0
+  // Live value pinned to 39 (中性) — source: feargreedindex.world (updated 2026-06-11)
+  const aShareFgiHistory = generateRandomWalk(11000, 42.0, 5, 95, 2.0);
+  aShareFgiHistory[aShareFgiHistory.length - 1].value = 39.0;
   const currentAShareFgi = aShareFgiHistory[aShareFgiHistory.length - 1].value;
 
-  // 12. HK FGI from feargreedindex.world: range 5-95, starts around 24.0
-  const hkFgiHistory = generateRandomWalk(12000, 24.0, 5, 95, 2.2);
+  // 12. HK FGI from feargreedindex.world: range 5-95, starts around 28.0
+  // Live value pinned to 22 (恐惧) — source: feargreedindex.world (updated 2026-06-11)
+  const hkFgiHistory = generateRandomWalk(12000, 28.0, 5, 95, 2.2);
+  hkFgiHistory[hkFgiHistory.length - 1].value = 22.0;
   const currentHkFgi = hkFgiHistory[hkFgiHistory.length - 1].value;
 
   // 13. sectorAi: range 10-95, starts around 82.5

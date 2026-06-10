@@ -214,7 +214,7 @@ const NGCX = 100, NGCY = 92, NGR = 72;
               <text x={NGCX} y={NGCY - 14} text-anchor="middle" font-size="25" font-weight="800" fill={getFgiState(aShareFgiVal).color}>{aShareFgiVal.toFixed(1)}</text>
               <text x={NGCX} y={NGCY - 1} text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text-primary)">{getFgiState(aShareFgiVal).text}</text>
             </svg>
-            <p class="gt-gauge-desc">A股恐贪指数 (feargreedindex.world)</p>
+            <p class="gt-gauge-desc">A股恐贪指数 &middot; <a href="https://feargreedindex.world/#sentiment" target="_blank" class="gt-source-link">feargreedindex.world ↗</a></p>
           </div>
         </div>
         <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
@@ -257,7 +257,7 @@ const NGCX = 100, NGCY = 92, NGR = 72;
               <text x={NGCX} y={NGCY - 14} text-anchor="middle" font-size="25" font-weight="800" fill={getFgiState(hkFgiVal).color}>{hkFgiVal.toFixed(1)}</text>
               <text x={NGCX} y={NGCY - 1} text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text-primary)">{getFgiState(hkFgiVal).text}</text>
             </svg>
-            <p class="gt-gauge-desc">港股恐贪指数 (feargreedindex.world)</p>
+            <p class="gt-gauge-desc">港股恐贪指数 &middot; <a href="https://feargreedindex.world/#hk-sentiment" target="_blank" class="gt-source-link">feargreedindex.world ↗</a></p>
           </div>
         </div>
         <div class="gt-resize-handle" title="拖动右下角调整大小"></div>
@@ -1743,6 +1743,18 @@ const NGCX = 100, NGCY = 92, NGR = 72;
     margin-top: 0.4rem;
     margin-bottom: 0;
     line-height: 1.35;
+  }
+
+  .gt-source-link {
+    color: var(--accent, #4ecdc4);
+    text-decoration: none;
+    opacity: 0.85;
+    font-size: 0.75rem;
+    transition: opacity 0.2s;
+  }
+  .gt-source-link:hover {
+    opacity: 1;
+    text-decoration: underline;
   }
 
   /* General Card Layouts */
