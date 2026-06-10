@@ -606,23 +606,43 @@ const nzones = [
                       >
                         <defs>
                           <linearGradient
-                            id="areaGrad"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop
-                              offset="0%"
-                              stop-color="#f59e0b"
-                              stop-opacity="0.3"
-                            />
-                            <stop
-                              offset="100%"
-                              stop-color="#f59e0b"
-                              stop-opacity="0"
-                            />
-                          </linearGradient>
+                             id="lineGrad"
+                             x1="0"
+                             y1="94"
+                             x2="0"
+                             y2="6"
+                             gradientUnits="userSpaceOnUse"
+                           >
+                             <stop offset="0%" stop-color="#ea3943" />
+                             <stop offset="20%" stop-color="#ea3943" />
+                             <stop offset="20%" stop-color="#f97316" />
+                             <stop offset="40%" stop-color="#f97316" />
+                             <stop offset="40%" stop-color="#eab308" />
+                             <stop offset="60%" stop-color="#eab308" />
+                             <stop offset="60%" stop-color="#84cc16" />
+                             <stop offset="80%" stop-color="#84cc16" />
+                             <stop offset="80%" stop-color="#16c784" />
+                             <stop offset="100%" stop-color="#16c784" />
+                           </linearGradient>
+                           <linearGradient
+                             id="areaGrad"
+                             x1="0"
+                             y1="94"
+                             x2="0"
+                             y2="6"
+                             gradientUnits="userSpaceOnUse"
+                           >
+                             <stop offset="0%" stop-color="rgba(234, 57, 67, 0.04)" />
+                             <stop offset="20%" stop-color="rgba(234, 57, 67, 0.04)" />
+                             <stop offset="20%" stop-color="rgba(249, 115, 22, 0.04)" />
+                             <stop offset="40%" stop-color="rgba(249, 115, 22, 0.04)" />
+                             <stop offset="40%" stop-color="rgba(234, 179, 8, 0.04)" />
+                             <stop offset="60%" stop-color="rgba(234, 179, 8, 0.04)" />
+                             <stop offset="60%" stop-color="rgba(132, 204, 22, 0.04)" />
+                             <stop offset="80%" stop-color="rgba(132, 204, 22, 0.04)" />
+                             <stop offset="80%" stop-color="rgba(22, 199, 132, 0.04)" />
+                             <stop offset="100%" stop-color="rgba(22, 199, 132, 0.04)" />
+                           </linearGradient>
                         </defs>
                         {zones
                           .slice()
@@ -664,7 +684,7 @@ const nzones = [
                           <polyline
                             points={polyline}
                             fill="none"
-                            stroke="#f59e0b"
+                            stroke="url(#lineGrad)"
                             stroke-width="1.8"
                             stroke-linejoin="round"
                             stroke-linecap="round"
@@ -1661,6 +1681,53 @@ const nzones = [
       }
     }
 
+    const getFgiValueColor = (v: number) => {
+      if (v <= 25) return "#ea3943";
+      if (v <= 45) return "#f97316";
+      if (v <= 55) return "#eab308";
+      if (v <= 75) return "#84cc16";
+      return "#16c784";
+    };
+
+    const getFgiBgColor = (v: number) => {
+      const hex = getFgiValueColor(v);
+      if (hex === "#ea3943") return "rgba(234, 57, 67, 0.1)";
+      if (hex === "#f97316") return "rgba(249, 115, 22, 0.1)";
+      if (hex === "#eab308") return "rgba(234, 179, 8, 0.1)";
+      if (hex === "#84cc16") return "rgba(132, 204, 22, 0.1)";
+      return "rgba(22, 199, 132, 0.1)";
+    };
+
+    const getLineGradient = (ctx: CanvasRenderingContext2D, chartArea: any) => {
+      const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+      gradient.addColorStop(0, "#ea3943");
+      gradient.addColorStop(0.2, "#ea3943");
+      gradient.addColorStop(0.2, "#f97316");
+      gradient.addColorStop(0.4, "#f97316");
+      gradient.addColorStop(0.4, "#eab308");
+      gradient.addColorStop(0.6, "#eab308");
+      gradient.addColorStop(0.6, "#84cc16");
+      gradient.addColorStop(0.8, "#84cc16");
+      gradient.addColorStop(0.8, "#16c784");
+      gradient.addColorStop(1, "#16c784");
+      return gradient;
+    };
+
+    const getBgGradient = (ctx: CanvasRenderingContext2D, chartArea: any) => {
+      const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+      gradient.addColorStop(0, "rgba(234, 57, 67, 0.04)");
+      gradient.addColorStop(0.2, "rgba(234, 57, 67, 0.04)");
+      gradient.addColorStop(0.2, "rgba(249, 115, 22, 0.04)");
+      gradient.addColorStop(0.4, "rgba(249, 115, 22, 0.04)");
+      gradient.addColorStop(0.4, "rgba(234, 179, 8, 0.04)");
+      gradient.addColorStop(0.6, "rgba(234, 179, 8, 0.04)");
+      gradient.addColorStop(0.6, "rgba(132, 204, 22, 0.04)");
+      gradient.addColorStop(0.8, "rgba(132, 204, 22, 0.04)");
+      gradient.addColorStop(0.8, "rgba(22, 199, 132, 0.04)");
+      gradient.addColorStop(1, "rgba(22, 199, 132, 0.04)");
+      return gradient;
+    };
+
     // --- Chart.js components initialization for Stock, Crypto, Gold ---
     const chartInstances: Record<string, any> = {};
 
@@ -1727,8 +1794,18 @@ const nzones = [
               {
                 label: label,
                 data: values,
-                borderColor: color,
-                backgroundColor: bgColor,
+                borderColor: function (context: any) {
+                  const chart = context.chart;
+                  const { ctx: chartCtx, chartArea } = chart;
+                  if (!chartArea) return color;
+                  return getLineGradient(chartCtx, chartArea);
+                },
+                backgroundColor: function (context: any) {
+                  const chart = context.chart;
+                  const { ctx: chartCtx, chartArea } = chart;
+                  if (!chartArea) return bgColor;
+                  return getBgGradient(chartCtx, chartArea);
+                },
                 borderWidth: 2,
                 pointRadius: 0,
                 pointHoverRadius: 6,
