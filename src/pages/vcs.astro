@@ -1,0 +1,653 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="2026 版本控制工具图景 · 交互展示">
+  <div class="vcs-page">
+    <!-- Top Navigation Bar -->
+    <nav class="vcs-top-nav">
+      <div class="nav-container">
+        <a href="/explore-more" class="nav-back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          <span>返回探索更多</span>
+        </a>
+        <div class="nav-center-tag">
+          <span class="pulse-indicator"></span>
+          <span>TECH RADAR · 2026</span>
+        </div>
+        <div class="nav-links">
+          <a href="/golden-time" class="nav-pill">数字与黄金</a>
+          <a href="/ace" class="nav-pill">Ace 看板</a>
+          <a href="/profile" class="nav-pill">个人主页</a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container">
+
+      <header class="hero">
+        <div class="eyebrow">VERSION CONTROL · 2026</div>
+        <h1>谁将接替 Git？——版本控制工具图景</h1>
+        <p>每个项目一张卡片：定位、许可证、现状，以及一个核心概念的小动画。排序规则：开源项目按"接替 Git 的可能性"从高到低；非开源但个人可免费使用的排在其后；完全拿不到的大厂系统与开源平替对照展示。数据核查于 2026 年 10 月。</p>
+        <div class="legend">
+          <span class="chip"><span class="dot g"></span>开源</span>
+          <span class="chip"><span class="dot a"></span>非完全开源 / 个人免费</span>
+          <span class="chip"><span class="dot r"></span>大厂内部 · 不可获取</span>
+        </div>
+      </header>
+
+      <!-- ============ A 组：开源梯队 ============ -->
+      <section class="group">
+        <div class="group-title"><h2>A · 开源梯队</h2><span>按接替 Git 的可能性排序</span></div>
+        <p class="group-desc">许可证干净、可直接上手。越靠前，越可能成为"后 Git 时代"的日常工具。</p>
+
+        <!-- 1. Jujutsu -->
+        <div class="card">
+          <div>
+            <h3><span class="rank">1</span>Jujutsu（jj）<span class="badge oss">Apache-2.0 · 开源</span></h3>
+            <p class="tagline">Git 兼容的下一代 VCS——Git 只做它的存储后端</p>
+            <ul>
+              <li><b>Change ID</b>：改写提交（amend/rebase）后身份不变，审查与讨论不失联</li>
+              <li><code>jj op log</code> 记录每一次仓库操作，<code>jj evolog</code> 回看改动演变——AI 时代"谁动了什么"一目了然</li>
+              <li>v0.46.0（2026-10），月度发版，社区最活跃</li>
+            </ul>
+            <p class="link">→ <a href="https://github.com/jj-vcs/jj" target="_blank" rel="noopener noreferrer">github.com/jj-vcs/jj</a></p>
+          </div>
+          <div class="demo">
+            <svg width="300" height="120" viewBox="0 0 300 120">
+              <rect class="n" x="30" y="20" width="110" height="34" rx="8"/>
+              <text class="lbl jj-h1" x="85" y="41" text-anchor="middle">commit a1b2c3</text>
+              <text class="lbl jj-h2" x="85" y="41" text-anchor="middle" fill="#2563eb">commit d4e5f6</text>
+              <text class="sub" x="85" y="70" text-anchor="middle">amend / rebase 改写</text>
+              <line class="edge" x1="85" y1="54" x2="85" y2="82"/>
+              <rect x="30" y="84" width="110" height="30" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+              <text class="lbl" x="85" y="103" text-anchor="middle" fill="#1d4ed8">Change ID: kqyz…（不变）</text>
+              <text class="sub" x="200" y="45" text-anchor="start">哈希会变</text>
+              <text class="sub" x="200" y="100" text-anchor="start" fill="#1d4ed8">身份不变</text>
+            </svg>
+            <p class="cap">核心概念：Change ID 跨改写稳定</p>
+          </div>
+        </div>
+
+        <!-- 2. Sapling -->
+        <div class="card">
+          <div>
+            <h3><span class="rank">2</span>Sapling<span class="badge oss">MIT · 开源</span></h3>
+            <p class="tagline">Meta 出品，为超大仓库而生的 Git 兼容客户端</p>
+            <ul>
+              <li><code>sl journal</code> / <code>sl undo</code>：所有操作可回看、可撤销</li>
+              <li>EdenFS（按需检出）与 Mononoke（服务端）代码已并入本仓库统一开发</li>
+              <li>最新 0.2.20260929，持续活跃</li>
+            </ul>
+            <p class="link">→ <a href="https://github.com/facebook/sapling" target="_blank" rel="noopener noreferrer">github.com/facebook/sapling</a></p>
+          </div>
+          <div class="demo">
+            <svg width="300" height="120" viewBox="0 0 300 120">
+              <line class="edge" x1="50" y1="95" x2="250" y2="95"/>
+              <circle class="n" cx="70" cy="95" r="9"/>
+              <circle class="n" cx="120" cy="95" r="9"/>
+              <circle class="n sl-undo" cx="170" cy="95" r="9" fill="#fee2e2" stroke="#dc2626"/>
+              <circle class="n" cx="220" cy="95" r="9" fill="#dcfce7" stroke="#16a34a"/>
+              <text class="sub" x="70" y="115" text-anchor="middle">c1</text>
+              <text class="sub" x="120" y="115" text-anchor="middle">c2</text>
+              <text class="sub sl-undo" x="170" y="115" text-anchor="middle" fill="#dc2626">误操作</text>
+              <text class="sub" x="220" y="115" text-anchor="middle" fill="#16a34a">undo</text>
+              <text class="lbl" x="150" y="30" text-anchor="middle">sl undo：一切皆可回滚</text>
+              <path class="edge" d="M170 78 Q195 55 220 78" fill="none" stroke="#16a34a" stroke-dasharray="4 3"/>
+            </svg>
+            <p class="cap">核心概念：操作日志 + 一键撤销</p>
+          </div>
+        </div>
+
+        <!-- 3. Lit -->
+        <div class="card">
+          <div>
+            <h3><span class="rank">3</span>Lit<span class="badge oss">AGPL-3.0 + 商业双许可</span></h3>
+            <p class="tagline">"AI Agent 优先，人类其次"的 Git 替代品（Rust）</p>
+            <ul>
+              <li>默认 <b>JSON 输出</b>、内置 30 个 MCP 工具，专为 Agent 调用设计</li>
+              <li>"改动原因"是结构化元数据字段，不再是自由文本</li>
+              <li>甚至内置后量子加密（ML-DSA-87）；最新 1.8.0，极早期</li>
+            </ul>
+            <p class="link">→ <a href="https://github.com/nervosys/Lit" target="_blank" rel="noopener noreferrer">github.com/nervosys/Lit</a></p>
+          </div>
+          <div class="demo">
+            <div style="background:#0f172a;border-radius:8px;padding:12px 14px;">
+              <div class="lit-line">$ lit commit --json</div>
+              <div class="lit-line" style="animation-delay:.6s">&#123; "change": "k7x2",</div>
+              <div class="lit-line" style="animation-delay:1.2s">&nbsp;&nbsp;"why": "fix auth race",</div>
+              <div class="lit-line" style="animation-delay:1.8s">&nbsp;&nbsp;"agent": "claude-4" &#125;</div>
+            </div>
+            <p class="cap">核心概念：结构化输出，Agent 原生可读</p>
+          </div>
+        </div>
+
+        <!-- 4. Fossil -->
+        <div class="card">
+          <div>
+            <h3><span class="rank">4</span>Fossil<span class="badge oss">BSD-2-Clause · 开源</span></h3>
+            <p class="tagline">一个可执行文件装下整个研发协作平台</p>
+            <ul>
+              <li>版本控制 + Bug 追踪 + Wiki + 论坛，开箱即用</li>
+              <li><code>blame</code> / <code>praise</code> 逐行追溯；SQLite 团队自用</li>
+              <li>最新 2.28（2026-03）——不会取代 Git，但会一直在</li>
+            </ul>
+            <p class="link">→ <a href="https://www.fossil-scm.org/" target="_blank" rel="noopener noreferrer">fossil-scm.org</a></p>
+          </div>
+          <div class="demo">
+            <svg width="300" height="120" viewBox="0 0 300 120">
+              <rect class="fs-box" x="70" y="18" width="160" height="86" rx="12" fill="#f0fdfa" stroke="#94a3b8" stroke-width="2"/>
+              <text class="lbl" x="150" y="40" text-anchor="middle" font-weight="600">fossil（单文件）</text>
+              <text class="sub" x="96" y="64">VCS</text>
+              <text class="sub" x="140" y="64">Wiki</text>
+              <text class="sub" x="184" y="64">Tickets</text>
+              <text class="sub" x="110" y="86">Forum</text>
+              <text class="sub" x="168" y="86">Chat</text>
+            </svg>
+            <p class="cap">核心概念：一体化，零依赖自托管</p>
+          </div>
+        </div>
+
+        <!-- 5. Mercurial -->
+        <div class="card">
+          <div>
+            <h3><span class="rank">5</span>Mercurial<span class="badge oss">GPL-2.0+ · 开源</span></h3>
+            <p class="tagline">优雅的经典 DVCS——"更好的设计未必赢"的样本</p>
+            <ul>
+              <li>命令简洁、心智模型干净，比 Git 易学</li>
+              <li>仍在维护（7.2.4，2026-05 有稳定版），Rust 化推进中</li>
+              <li>生态收缩是事实，接替 Git 的可能性已很低</li>
+            </ul>
+            <p class="link">→ <a href="https://www.mercurial-scm.org/" target="_blank" rel="noopener noreferrer">mercurial-scm.org</a></p>
+          </div>
+          <div class="demo">
+            <svg width="300" height="120" viewBox="0 0 300 120">
+              <path class="hg-line" d="M40 90 Q90 90 100 60 T160 35 T260 35" fill="none" stroke="#0d9488" stroke-width="2"/>
+              <circle class="n" cx="40" cy="90" r="8"/>
+              <circle class="n" cx="100" cy="60" r="8"/>
+              <circle class="n" cx="160" cy="35" r="8"/>
+              <circle class="n" cx="220" cy="35" r="8" fill="#f0fdfa" stroke="#0d9488"/>
+              <text class="sub" x="150" y="110" text-anchor="middle">hg log：干净的直线历史</text>
+            </svg>
+            <p class="cap">核心概念：简洁一致的心智模型</p>
+          </div>
+        </div>
+
+        <!-- 6. Pijul -->
+        <div class="card">
+          <div>
+            <h3><span class="rank">6</span>Pijul<span class="badge oss">GPL / AGPL · 开源</span></h3>
+            <p class="tagline">基于补丁理论：合并有数学上的正确性保证</p>
+            <ul>
+              <li>补丁可交换顺序（commutation），合并结果与顺序无关</li>
+              <li>2023 年发过 1.0，因内核重写回到 1.0.0-beta——理论优雅，工程缓慢</li>
+            </ul>
+            <p class="link">→ <a href="https://pijul.org/" target="_blank" rel="noopener noreferrer">pijul.org</a></p>
+          </div>
+          <div class="demo">
+            <svg width="300" height="120" viewBox="0 0 300 120">
+              <g class="pj-a"><rect x="40" y="30" width="70" height="26" rx="6" fill="#ede9fe" stroke="#7c3aed"/><text class="lbl" x="75" y="47" text-anchor="middle">补丁 A</text></g>
+              <g class="pj-b"><rect x="190" y="30" width="70" height="26" rx="6" fill="#fef3c7" stroke="#d97706"/><text class="lbl" x="225" y="47" text-anchor="middle">补丁 B</text></g>
+              <line class="edge" x1="150" y1="62" x2="150" y2="78"/>
+              <rect x="110" y="80" width="80" height="26" rx="6" fill="#dcfce7" stroke="#16a34a"/>
+              <text class="lbl" x="150" y="97" text-anchor="middle">结果相同 ✓</text>
+            </svg>
+            <p class="cap">核心概念：A∘B = B∘A，交换无关</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ B 组 ============ -->
+      <section class="group">
+        <div class="group-title"><h2>B · 非完全开源，个人免费用</h2><span>能用，但规则在别人手里</span></div>
+        <p class="group-desc">功能成熟、个人免费，代价是许可证或平台依赖。</p>
+
+        <!-- 7. GitButler -->
+        <div class="card">
+          <div>
+            <h3><span class="rank">7</span>GitButler<span class="badge fair">FSL · 两年后转 Apache-2.0</span></h3>
+            <p class="tagline">虚拟分支：多条分支的改动同时作用于一个工作区</p>
+            <ul>
+              <li>改动随时改派归属分支，自动记录状态</li>
+              <li>FSL 不是严格开源，但属"延迟开源"，个人完全免费</li>
+              <li>2026 年活跃开发中</li>
+            </ul>
+            <p class="link">→ <a href="https://github.com/gitbutlerapp/gitbutler" target="_blank" rel="noopener noreferrer">github.com/gitbutlerapp/gitbutler</a></p>
+          </div>
+          <div class="demo">
+            <svg width="300" height="120" viewBox="0 0 300 120">
+              <g class="gb-lane"><rect x="40" y="18" width="90" height="24" rx="6" fill="#dbeafe" stroke="#2563eb"/><text class="lbl" x="85" y="34" text-anchor="middle">分支 A 改动</text></g>
+              <g class="gb-lane" style="animation-delay:.8s"><rect x="170" y="18" width="90" height="24" rx="6" fill="#ede9fe" stroke="#7c3aed"/><text class="lbl" x="215" y="34" text-anchor="middle">分支 B 改动</text></g>
+              <rect x="70" y="76" width="160" height="30" rx="8" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/>
+              <text class="lbl" x="150" y="95" text-anchor="middle">同一个工作区</text>
+            </svg>
+            <p class="cap">核心概念：虚拟分支并行落在同一工作区</p>
+          </div>
+        </div>
+
+        <!-- 8. Graphite -->
+        <div class="card">
+          <div>
+            <h3><span class="rank">8</span>Graphite<span class="badge fair">闭源 SaaS · 有免费额度</span></h3>
+            <p class="tagline">stacked PR 工作流 → 现已成为 Cursor 的 AI 审查平台</p>
+            <ul>
+              <li>把大改动拆成一串相互依赖的小 PR，逐层审查合并</li>
+              <li><b>2025-12 被 Cursor（Anysphere）收购</b>，转型 AI 代码审查</li>
+            </ul>
+            <p class="link">→ <a href="https://graphite.dev/" target="_blank" rel="noopener noreferrer">graphite.dev</a></p>
+          </div>
+          <div class="demo">
+            <svg width="300" height="120" viewBox="0 0 300 120">
+              <rect class="n gr-p1" x="105" y="84" width="90" height="24" rx="6"/><text class="lbl" x="150" y="100" text-anchor="middle">PR 1 基础</text>
+              <rect class="n gr-p2" x="105" y="50" width="90" height="24" rx="6" fill="#dbeafe"/><text class="lbl" x="150" y="66" text-anchor="middle">PR 2 功能</text>
+              <rect class="n gr-p3" x="105" y="16" width="90" height="24" rx="6" fill="#ede9fe"/><text class="lbl" x="150" y="32" text-anchor="middle">PR 3 收尾</text>
+              <text class="sub" x="215" y="100">先合并</text>
+              <text class="sub" x="215" y="32">后合并</text>
+            </svg>
+            <p class="cap">核心概念：叠放 PR，逐层依赖</p>
+          </div>
+        </div>
+
+        <!-- 9. Delta -->
+        <div class="card">
+          <div>
+            <h3><span class="rank">9</span>Delta / DeltaDB<span class="badge fair">闭源 · 邀请制 Beta</span></h3>
+            <p class="tagline">Zed 出品：记录每次操作，代码与对话双向追溯</p>
+            <ul>
+              <li>操作流而非快照：每次编辑有稳定身份与锚点</li>
+              <li>从代码反查产生它的 Agent 对话；与 Git 共存，队友无感</li>
+              <li>独立 beta 应用（排队中），未来并入 Zed</li>
+            </ul>
+            <p class="link">→ <a href="https://zed.dev/blog/introducing-delta" target="_blank" rel="noopener noreferrer">zed.dev/blog/introducing-delta</a></p>
+          </div>
+          <div class="demo">
+            <svg width="300" height="120" viewBox="0 0 300 120">
+              <rect x="20" y="20" width="110" height="34" rx="8" fill="#f0fdfa" stroke="#0d9488"/>
+              <text class="lbl" x="75" y="35" text-anchor="middle">Agent 对话</text>
+              <text class="sub" x="75" y="48" text-anchor="middle">"为什么这样改"</text>
+              <rect x="170" y="20" width="110" height="34" rx="8" fill="#eff6ff" stroke="#2563eb"/>
+              <text class="lbl" x="225" y="35" text-anchor="middle">代码行</text>
+              <text class="sub" x="225" y="48" text-anchor="middle">@锚点 d-417</text>
+              <line class="dl-link" x1="130" y1="37" x2="170" y2="37" stroke="#7c3aed" stroke-width="2"/>
+              <text class="sub" x="150" y="100" text-anchor="middle">双向跳转，永不断链</text>
+            </svg>
+            <p class="cap">核心概念：锚点连接代码与对话</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ C 组 ============ -->
+      <section class="group">
+        <div class="group-title"><h2>C · 大厂内部系统 × 开源平替</h2><span>拿不到原版，但有复刻可上手</span></div>
+        <p class="group-desc">左边是论文与博客里的传说，右边是社区的可运行实现。</p>
+
+        <!-- 10. Piper × Mega -->
+        <div class="card">
+          <div>
+            <h3><span class="rank">C1</span>Piper + CitC × Mega<span class="badge closed">Piper 闭源</span> <span class="badge oss">Mega 开源</span></h3>
+            <p class="tagline">Google 的 86TB 单仓库，以及它的开源复刻</p>
+            <ul>
+              <li><b>Piper</b>：只存在于 CACM 2016 论文（DOI 10.1145/2854146）；CitC 云端工作区，本地零检出</li>
+              <li><b>Mega</b>：Rust 实现、Git 协议兼容、536 star、3900+ 提交，活跃但无正式 release；配套 Libra（Agent 客户端）、Scorpio（FUSE 挂载）</li>
+            </ul>
+            <p class="link">→ <a href="https://github.com/web3infra-foundation/mega" target="_blank" rel="noopener noreferrer">github.com/web3infra-foundation/mega</a></p>
+            <div class="pair">注意：Mega 集成的构建系统 Buck2 是 Meta 出品，并非其自研。</div>
+          </div>
+          <div class="demo">
+            <svg width="300" height="120" viewBox="0 0 300 120">
+              <ellipse cx="150" cy="34" rx="46" ry="18" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+              <text class="lbl" x="150" y="38" text-anchor="middle">云端 Monorepo</text>
+              <g class="pp-c1"><rect x="30" y="76" width="56" height="26" rx="6" fill="#fff" stroke="#94a3b8"/><text class="sub" x="58" y="93" text-anchor="middle">浏览器</text></g>
+              <g class="pp-c2"><rect x="122" y="76" width="56" height="26" rx="6" fill="#fff" stroke="#94a3b8"/><text class="sub" x="150" y="93" text-anchor="middle">云桌面</text></g>
+              <g class="pp-c3"><rect x="214" y="76" width="56" height="26" rx="6" fill="#fff" stroke="#94a3b8"/><text class="sub" x="242" y="93" text-anchor="middle">CLI</text></g>
+              <line class="edge" x1="58" y1="76" x2="120" y2="46"/><line class="edge" x1="150" y1="76" x2="150" y2="52"/><line class="edge" x1="242" y1="76" x2="180" y2="46"/>
+            </svg>
+            <p class="cap">核心概念：CitC——不克隆，云端叠加修改</p>
+          </div>
+        </div>
+
+        <!-- 11. Scion × OpenScion -->
+        <div class="card">
+          <div>
+            <h3><span class="rank">C2</span>Scion × OpenScion 复刻<span class="badge closed">Scion 不对外发布</span> <span class="badge oss">复刻开源</span></h3>
+            <p class="tagline">Anthropic 的服务端版本控制，以及三个社区实现</p>
+            <ul>
+              <li><b>Scion</b>：7 人团队 5 个月建成；changeset + WAL、Spanner CAS 无锁合并、派生数据、三层缓存；官方明说"绝非 Git 的通用替代品"</li>
+              <li><b>平替</b>：tinyhumansai/openscion（Rust，GPL-3.0）、CarterT27/scion（Rust clean-room，Apache-2.0）、feder-cr/open_scion（已改名 git-ai，Go）——都是刚起步的小项目</li>
+            </ul>
+            <p class="link">→ <a href="https://github.com/tinyhumansai/openscion" target="_blank" rel="noopener noreferrer">openscion</a> · <a href="https://github.com/CarterT27/scion" target="_blank" rel="noopener noreferrer">CarterT27/scion</a> · <a href="https://github.com/feder-cr/open_scion" target="_blank" rel="noopener noreferrer">git-ai</a></p>
+          </div>
+          <div class="demo">
+            <svg width="300" height="120" viewBox="0 0 300 120">
+              <g class="sc-cs"><rect x="110" y="14" width="80" height="24" rx="6" fill="#fef3c7" stroke="#d97706"/><text class="lbl" x="150" y="30" text-anchor="middle">changeset</text></g>
+              <rect x="60" y="72" width="180" height="34" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+              <text class="lbl" x="150" y="88" text-anchor="middle">服务端 CAS 合并（无锁）</text>
+              <text class="sub" x="150" y="100" text-anchor="middle">Spanner 单行比较并交换</text>
+            </svg>
+            <p class="cap">核心概念：合并在服务端原子完成</p>
+          </div>
+        </div>
+
+        <!-- 12. Mononoke × Sapling / Scalar 特例 -->
+        <div class="card">
+          <div>
+            <h3><span class="rank">C3</span>Mononoke × Sapling · Scalar 特例<span class="badge oss">均有开源落点</span></h3>
+            <p class="tagline">两个"消失"的方式：并入仓库，或并入 Git 本身</p>
+            <ul>
+              <li><b>Mononoke</b>：独立仓库已归档，代码并入 Sapling 仓库继续开发——它的平替就是 Sapling 本身</li>
+              <li><b>Scalar</b>：微软的大仓库方案，核心以 <code>scalar</code> 命令并入 Git 2.38——大改造被上游吸收的教科书案例；VFS for Git 已停更劝退</li>
+              <li>周边：Uber SubmitQueue（开源合并队列）、GitHub Merge Queue（平台功能，2023-07 GA）属工作流层补充</li>
+            </ul>
+            <p class="link">→ <a href="https://github.com/facebook/sapling" target="_blank" rel="noopener noreferrer">facebook/sapling</a> · <a href="https://github.com/microsoft/scalar" target="_blank" rel="noopener noreferrer">microsoft/scalar</a></p>
+          </div>
+          <div class="demo">
+            <svg width="300" height="120" viewBox="0 0 300 120">
+              <text class="sub" x="30" y="22">完整仓库</text>
+              <rect class="sca-f1" x="30" y="30" width="240" height="16" rx="4" fill="#e2e8f0"/>
+              <text class="sub" x="30" y="66">部分克隆 + 稀疏检出</text>
+              <rect class="sca-f2" x="30" y="72" width="140" height="16" rx="4" fill="#bfdbfe"/>
+              <rect class="sca-f3" x="30" y="92" width="70" height="16" rx="4" fill="#2563eb"/>
+              <text class="sub" x="180" y="84" fill="#2563eb">只取所需</text>
+            </svg>
+            <p class="cap">核心概念：Scalar——少下载，多干活</p>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <div class="footer-meta">
+          <p>数据核查：2026 年 10 月，逐一访问官网 / GitHub 仓库核实。配套文章见《2026：AI 时代的版本控制》。Synqit / wizardcommit 未能核实，未收录。</p>
+        </div>
+        <div class="footer-navigation">
+          <div class="footer-col">
+            <div class="col-title">站点探索</div>
+            <a href="/explore-more">🌟 探索更多全部链接</a>
+            <a href="/profile">🏠 个人主页</a>
+            <a href="/">🎮 计数器挑战</a>
+          </div>
+          <div class="footer-col">
+            <div class="col-title">联动看板</div>
+            <a href="/golden-time">📊 数字与黄金 (单市场情绪)</a>
+            <a href="/global-time">🌍 美丽与漂亮 (多市场宏观)</a>
+            <a href="/ace">♠️ Ace 看板 (中国市场估值)</a>
+          </div>
+        </div>
+      </footer>
+
+    </div>
+  </div>
+</Layout>
+
+<style>
+:root {
+  --bg: #ffffff;
+  --panel: #f8fafc;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --muted: #64748b;
+  --blue: #2563eb;
+  --green: #16a34a;
+  --amber: #d97706;
+  --red: #dc2626;
+  --purple: #7c3aed;
+  --teal: #0d9488;
+}
+
+.vcs-page {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.65;
+  min-height: 100vh;
+}
+
+/* Top Sticky Navigation */
+.vcs-top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.nav-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  transition: all 0.2s ease;
+}
+.nav-back:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+  background: #eff6ff;
+  transform: translateX(-2px);
+}
+.nav-center-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.pulse-indicator {
+  width: 7px;
+  height: 7px;
+  background: var(--teal);
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.4);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.6); }
+  70% { box-shadow: 0 0 0 6px rgba(13, 148, 136, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0); }
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav-pill {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 5px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+.nav-pill:hover {
+  color: var(--blue);
+  background: #f1f5f9;
+}
+@media (max-width: 640px) {
+  .nav-center-tag { display: none; }
+  .nav-pill { display: none; }
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Hero */
+.hero { padding: 56px 0 36px; border-bottom: 1px solid var(--border); }
+.hero .eyebrow { color: var(--blue); font-size: 13px; letter-spacing: .2em; font-weight: 600; }
+.hero h1 { font-size: 36px; margin: 12px 0 14px; font-weight: 800; letter-spacing: -0.02em; }
+.hero p { color: var(--muted); max-width: 720px; font-size: 15px; }
+.hero .legend { display: flex; gap: 16px; margin-top: 20px; flex-wrap: wrap; font-size: 13px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); font-weight: 500; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.dot.g { background: var(--green); } .dot.a { background: var(--amber); } .dot.r { background: var(--red); }
+
+/* Group headers */
+.group { margin-top: 56px; }
+.group-title { display: flex; align-items: baseline; gap: 12px; border-left: 4px solid var(--blue); padding-left: 14px; }
+.group-title h2 { font-size: 22px; font-weight: 700; }
+.group-title span { color: var(--muted); font-size: 13px; }
+.group-desc { color: var(--muted); font-size: 14px; margin: 8px 0 24px 18px; }
+
+/* Cards */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 26px 28px;
+  margin-bottom: 26px;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 28px;
+  align-items: center;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  border-color: #cbd5e1;
+}
+@media (max-width: 860px) { .card { grid-template-columns: 1fr; } }
+.card h3 { font-size: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 700; }
+.rank { font-size: 13px; color: #fff; background: var(--blue); border-radius: 8px; padding: 2px 10px; font-weight: 600; }
+.badge { font-size: 12px; padding: 2px 10px; border-radius: 999px; font-weight: 600; }
+.badge.oss { background: #dcfce7; color: #166534; }
+.badge.fair { background: #fef3c7; color: #92400e; }
+.badge.closed { background: #fee2e2; color: #991b1b; }
+.tagline { color: var(--muted); font-size: 14px; margin: 4px 0 12px; font-weight: 500; }
+.card ul { padding-left: 1.2em; font-size: 14.5px; }
+.card li { margin-bottom: 6px; }
+.card .link { margin-top: 12px; font-size: 13.5px; }
+.card .link a { color: var(--blue); text-decoration: none; font-weight: 600; }
+.card .link a:hover { text-decoration: underline; }
+.pair { font-size: 12.5px; color: var(--muted); margin-top: 10px; padding: 8px 12px; background: #fff; border: 1px dashed var(--border); border-radius: 8px; }
+
+/* Demo panel */
+.demo { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.demo .cap { font-size: 12px; color: var(--muted); margin-top: 10px; text-align: center; }
+.demo svg { display: block; margin: 0 auto; }
+
+/* SVG shared */
+.n { fill: #fff; stroke: #94a3b8; stroke-width: 1.5; }
+.lbl { font: 11px "Segoe UI", sans-serif; fill: var(--text); }
+.sub { font: 10px "Segoe UI", sans-serif; fill: var(--muted); }
+.edge { stroke: #cbd5e1; stroke-width: 1.5; }
+
+/* jj animation: hash changes, Change ID stable */
+@keyframes hashflip { 0%,35% { opacity: 1; } 45%,85% { opacity: 0; } 95%,100% { opacity: 1; } }
+@keyframes hashflip2 { 0%,35% { opacity: 0; } 45%,85% { opacity: 1; } 95%,100% { opacity: 0; } }
+.jj-h1 { animation: hashflip 4s infinite; }
+.jj-h2 { animation: hashflip2 4s infinite; }
+
+/* Sapling undo: node fades back */
+@keyframes undoA { 0%,55% { opacity: 1; } 65%,90% { opacity: .25; } 100% { opacity: 1; } }
+.sl-undo { animation: undoA 4.5s infinite; }
+
+/* Lit JSON typing */
+@keyframes typing { from { width: 0; } to { width: 100%; } }
+.lit-line { overflow: hidden; white-space: nowrap; animation: typing 3s steps(40) infinite alternate; font: 11px "Consolas", monospace; color: var(--teal); }
+
+/* Pijul commute: arrows swap */
+@keyframes swap1 { 0%,30% { transform: translateX(0); } 50%,80% { transform: translateX(120px); } 100% { transform: translateX(0); } }
+@keyframes swap2 { 0%,30% { transform: translateX(0); } 50%,80% { transform: translateX(-120px); } 100% { transform: translateX(0); } }
+.pj-a { animation: swap1 5s infinite; }
+.pj-b { animation: swap2 5s infinite; }
+
+/* GitButler lanes */
+@keyframes lanes { 0%,40% { transform: translateY(0); } 60%,85% { transform: translateY(26px); } 100% { transform: translateY(0); } }
+.gb-lane { animation: lanes 5s infinite; }
+
+/* Graphite stack pulse */
+@keyframes stackPulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+.gr-p1 { animation: stackPulse 3s infinite; }
+.gr-p2 { animation: stackPulse 3s .5s infinite; }
+.gr-p3 { animation: stackPulse 3s 1s infinite; }
+
+/* Delta anchor link */
+@keyframes dashmove { to { stroke-dashoffset: -24; } }
+.dl-link { stroke-dasharray: 6 4; animation: dashmove 1.2s linear infinite; }
+
+/* Piper cloud */
+@keyframes cloudup { 0%,100% { transform: translateY(0); opacity: .9; } 50% { transform: translateY(-6px); opacity: 1; } }
+.pp-c1 { animation: cloudup 3s infinite; } .pp-c2 { animation: cloudup 3s .7s infinite; } .pp-c3 { animation: cloudup 3s 1.4s infinite; }
+
+/* Scion CAS merge */
+@keyframes landing { 0%,50% { transform: translateY(0); } 70%,90% { transform: translateY(34px); } 100% { transform: translateY(0); } }
+.sc-cs { animation: landing 4s infinite; }
+
+/* Scalar funnel */
+@keyframes funnel { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
+.sca-f1 { animation: funnel 3s infinite; } .sca-f2 { animation: funnel 3s .6s infinite; } .sca-f3 { animation: funnel 3s 1.2s infinite; }
+
+/* Fossil box */
+@keyframes fossilGlow { 0%,100% { stroke: #94a3b8; } 50% { stroke: var(--teal); } }
+.fs-box { animation: fossilGlow 3.5s infinite; }
+
+/* Mercurial graph */
+@keyframes hgDraw { from { stroke-dashoffset: 120; } to { stroke-dashoffset: 0; } }
+.hg-line { stroke-dasharray: 120; animation: hgDraw 4s ease-in-out infinite alternate; }
+
+/* Footer */
+footer {
+  margin: 72px 0 48px;
+  color: var(--muted);
+  font-size: 13px;
+  border-top: 1px solid var(--border);
+  padding-top: 32px;
+}
+.footer-meta p {
+  line-height: 1.6;
+}
+.footer-navigation {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px dashed var(--border);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
+}
+.footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.col-title {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.footer-col a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  transition: color 0.2s ease;
+}
+.footer-col a:hover {
+  color: var(--blue);
+}
+</style>

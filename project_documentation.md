@@ -74,7 +74,11 @@ ASE/
 │   └── pages/
 │       ├── index.astro         # 主页：SSR 逻辑 + 计数器挑战
 │       ├── profile.astro       # 个人主页：挑战通关后的奖励页
-│       └── explore-more.astro  # 社交链接聚合页
+│       ├── explore-more.astro  # 社交与看板聚合导航页
+│       ├── golden-time.astro   # 数字与黄金看板（加密与单市场情绪）
+│       ├── global-time.astro   # 美丽与漂亮看板（全球宏观与多市场情绪）
+│       ├── ace.astro           # Ace 看板（中国市场估值与情绪）
+│       └── vcs.astro           # 谁将接替 Git？版本控制工具图景交互展示
 ├── astro.config.ts             # Astro + 插件配置，适配器选择逻辑
 ├── elm.json                    # Elm 项目配置与依赖
 ├── package.json                # Node.js 依赖与脚本
